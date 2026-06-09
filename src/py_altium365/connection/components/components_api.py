@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from py_altium365.base.field_encoding import COMPONENTS_API_FIELD_SUFFIX
 from py_altium365.connection.rest_list_client import RestListClient, RestListQuery
@@ -28,16 +28,6 @@ class ComponentsQuery(RestListQuery):
 
     fields: List[str] = Field(default_factory=lambda: list(DEFAULT_COMPONENT_FIELDS))
     order_by: List[tuple[str, bool]] = Field(default_factory=lambda: [("Update Date", True)])
-
-    def to_params(self) -> Dict[str, Any]:
-        return super().to_params(field_suffix=COMPONENTS_API_FIELD_SUFFIX)
-
-
-class ComponentRecord(RestListClient.model_rebuild.__self__ if False else object):  # placeholder for mypy
-    pass
-
-
-from pydantic import BaseModel  # noqa: E402  — keep ComponentRecord as pydantic model
 
 
 class ComponentRecord(BaseModel):

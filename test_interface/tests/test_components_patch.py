@@ -26,7 +26,9 @@ def test_apply_set_order_by_encodes_via_query():
             order_by=[OrderByPatch(name="Update Date", descending=True)],
         ),
     )
-    params = updated.to_params()
+    from py_altium365.base.field_encoding import COMPONENTS_API_FIELD_SUFFIX
+
+    params = updated.to_params(field_suffix=COMPONENTS_API_FIELD_SUFFIX)
     assert any("Update_20Date" in value for value in params["orderby[]"])
 
 

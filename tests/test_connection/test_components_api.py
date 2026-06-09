@@ -44,7 +44,7 @@ def test_components_query_to_params():
         text="cap",
         tag="",
     )
-    params = query.to_params()
+    params = query.to_params(field_suffix=COMPONENTS_API_FIELD_SUFFIX)
 
     assert params["start"] == 10
     assert params["limit"] == 25
