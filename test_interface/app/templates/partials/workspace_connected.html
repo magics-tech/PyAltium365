@@ -1,0 +1,11 @@
+<p><span class="badge badge-ok">Connected</span> <strong>{{ workspace_name }}</strong></p>
+<p><code>{{ workspace_url }}</code></p>
+<h3>Service URLs</h3>
+<table>
+  <thead><tr><th>Service</th><th>URL</th></tr></thead>
+  <tbody>
+  {% for row in service_urls %}
+    <tr><td>{{ row.service_kind }}</td><td><code>{{ row.service_url or '' }}</code></td></tr>
+  {% endfor %}
+  </tbody>
+</table>

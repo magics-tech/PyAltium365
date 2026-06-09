@@ -35,6 +35,14 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 
+[project.optional-dependencies]
+dev = ["fastapi", "uvicorn[standard]", "jinja2", "httpx", "typer", "rich"]
+
 [project.urls]
 Homepage = "https://github.com/krakdustten/PyAltium365"
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: live Altium 365 tests (requires ALTIUM_USER and ALTIUM_PASS)",
+]
+testpaths = ["tests", "test_interface/tests"]

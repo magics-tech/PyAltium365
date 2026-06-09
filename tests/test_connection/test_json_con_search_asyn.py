@@ -330,6 +330,48 @@ def test_get_all_search_names_and_type_range(mocker):
     assert search.get_all_search_names_and_type_range() == [("test_name", FacedType.NO_TYPE), ("test_name2", FacedType.NO_TYPE)]
 
 
+def test_add_sort_field(mocker):
+    search, _ = create_search_api(mocker)
+
+    search.add_sort_field("HRID", descending=False)
+    sort_fields = search.get_sort_fields()
+
+    assert len(sort_fields) == 1
+    assert sort_fields[0].name == "HRID"
+    assert sort_fields[0].descending is False
+
+
+def test_clear_sort_fields(mocker):
+    search, _ = create_search_api(mocker)
+    search.add_sort_field("HRID")
+
+    search.clear_sort_fields()
+
+    assert search.get_sort_fields() == []
+
+
+def test_get_results_page(mocker):
+    search, altium_workspace = create_search_api(mocker)
+
+    scom = mocker.Mock()
+    scom.return_value.success = True
+    scom.return_value.documents = [
+        JsonDocument(
+            Score=1.0,
+            Fields=[JsonField(Name="HRID", Value="R-1"), JsonField(Name="CreatedAt", Value="0.41451")],
+        )
+    ]
+    search._send_command = scom
+
+    page = search.get_results_page(start=10, limit=5)
+
+    assert len(page) == 1
+    assert page[0].hrid == "R-1"
+    request = scom.call_args[0][0]
+    assert request.start == 10
+    assert request.limit == 5
+
+
 def test_get_results(mocker):
     search, altium_workspace = create_search_api(mocker)
 

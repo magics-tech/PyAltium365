@@ -1,0 +1,47 @@
+<div class="folder-tree">
+  {% if folders %}
+  <ul>
+    {% macro render_nodes(nodes) %}
+      {% for node in nodes %}
+      <li>
+        <a href="#"
+           hx-get="/partials/vault/folders/{{ node.guid }}/items"
+           hx-target="#vault-content"
+           hx-swap="innerHTML">{{ node.hrid or node.guid }}</a>
+        {% if node.children %}
+        <ul>{{ render_nodes(node.children) }}</ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    {% endmacro %}
+    {{ render_nodes(folders) }}
+  </ul>
+  {% endif %}
+
+  {% if items %}
+  <h3>Items</h3>
+  <table>
+    <thead><tr><th>HRID</th><th>GUID</th><th>Modified</th></tr></thead>
+    <tbody>
+    {% for row in items %}
+      <tr>
+        <td>{{ row.hrid }}</td>
+        <td><a href="#" hx-get="/partials/vault/items/{{ row.guid }}" hx-target="#vault-content" hx-swap="innerHTML">{{ row.guid }}</a></td>
+        <td>{{ row.last_modified_at }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if item %}
+  <h3>Item detail</h3>
+  <pre>{{ item | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  <form hx-get="/partials/vault/items/placeholder" hx-target="#vault-content" hx-swap="innerHTML"
+        hx-on::before-request="this.setAttribute('hx-get','/partials/vault/items/' + this.querySelector('input').value)">
+    <label>GUID lookup <input name="guid" placeholder="item guid"></label>
+    <button type="submit">Lookup</button>
+  </form>
+</div>

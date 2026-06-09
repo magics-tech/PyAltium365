@@ -1,0 +1,14 @@
+<h3>Results ({{ results|length }})</h3>
+<table>
+  <thead><tr><th>HRID</th><th>Content</th><th>Description</th><th>Item GUID</th></tr></thead>
+  <tbody>
+  {% for row in results %}
+    <tr>
+      <td>{{ row.hrid }}</td>
+      <td>{{ row.content_type }}</td>
+      <td>{{ row.description }}</td>
+      <td><code>{{ row.item_guid }}</code></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>

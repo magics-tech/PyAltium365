@@ -1,0 +1,36 @@
+<div>
+  {% if not meta.active %}
+  <p class="muted">No active search. Click “Create search” above.</p>
+  {% else %}
+  <p>Hit count: <strong id="search-count">{{ count if count is not none else '—' }}</strong></p>
+  <form hx-patch="/api/search" hx-ext="json-enc" hx-swap="none"
+        hx-on::after-request="htmx.ajax('GET','/partials/search',{target:'#search-content'})">
+    <input type="hidden" name="patch" value='{"clear":true,"content_types":["Component"]}'>
+    <button type="submit">Filter Components only</button>
+  </form>
+  {% if meta.facets %}
+  <details>
+    <summary>Available facets ({{ meta.facets|length }})</summary>
+    <ul>
+    {% for facet in meta.facets[:20] %}
+      <li>{{ facet.name }} ({{ facet.type }})</li>
+    {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if results %}
+  <table>
+    <thead><tr><th>Item GUID</th><th>Created</th><th>Parameters</th></tr></thead>
+    <tbody>
+    {% for row in results %}
+      <tr>
+        <td>{{ row.item_guid or '—' }}</td>
+        <td>{{ row.created_at }}</td>
+        <td><code>{{ row.parameters | tojson }}</code></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+</div>

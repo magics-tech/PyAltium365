@@ -1,0 +1,10 @@
+<form hx-post="/api/workspaces/connect-ui" hx-target="#workspace-panel" hx-swap="innerHTML">
+  <label>Workspace
+    <select name="url_or_id" required>
+      {% for ws in workspaces %}
+      <option value="{{ ws.hosting_url }}">{{ ws.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Connect</button>
+</form>

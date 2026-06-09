@@ -53,6 +53,9 @@ class JsonCon:
         response = self._session.request("REPORT", self._url, data=json_data, headers=headers)
 
         if response.status_code != 200:
-            raise ConnectionError("Failed to send JSON command!")
+            body = response.text[:500]
+            raise ConnectionError(
+                f"Failed to send JSON command (HTTP {response.status_code}): {body}"
+            )
 
         return return_method.parse_raw(response.content.decode("utf-8-sig"))

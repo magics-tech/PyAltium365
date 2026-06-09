@@ -1,0 +1,16 @@
+<table>
+  <thead><tr><th>Time</th><th>Method</th><th>Status</th><th>ms</th><th>URL</th></tr></thead>
+  <tbody>
+  {% for entry in entries %}
+    <tr>
+      <td>{{ entry.timestamp }}</td>
+      <td>{{ entry.method }}</td>
+      <td>{{ entry.status_code or entry.error or '' }}</td>
+      <td>{{ entry.duration_ms }}</td>
+      <td><code>{{ entry.url }}</code></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">No requests traced yet</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

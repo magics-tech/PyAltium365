@@ -104,12 +104,20 @@ class JsonDtoSearchConditionBooleanQuery(JsonDtoSearchConditionBaseQuery):
     items: List[JsonDtoSearchConditionBooleanQueryItem] = Field(alias="Items", default=[])
 
 
+class JsonDtoSortSearchField(BaseModel):
+    """Sort field for search results."""
+
+    rtype: str = Field(alias="$type", default="DtoSortSearchField")
+    name: str = Field(alias="Name")
+    descending: bool = Field(alias="Descending", default=True)
+
+
 class JsonSearchAsyncRequest(JsonRequest):
     """JSON search async request."""
 
     rtype: str = Field(alias="$type", default="SearchRequest")
     condition: JsonDtoSearchConditionBooleanQuery = Field(alias="Condition")
-    sort_fields: List[str] = Field(alias="SortFields", default=[])
+    sort_fields: List[JsonDtoSortSearchField] = Field(alias="SortFields", default=[])
     return_fields: List[str] = Field(alias="ReturnFields", default=[])
     start: int = Field(alias="Start", default=0)
     limit: int = Field(alias="Limit", default=0)
@@ -251,6 +259,7 @@ class JsonConSearchAsync(JsonCon):
         self._counters_up_to_date = False
         self._search_parameters: List[JsonDtoSearchConditionBooleanQueryItem] = []
         self._search_counters: List[JsonFacetedCounter] = []
+        self._sort_fields: List[JsonDtoSortSearchField] = []
         self._total_hits: int = 0
 
         self._update_search_names_and_counters()
@@ -506,6 +515,22 @@ class JsonConSearchAsync(JsonCon):
                 self._search_parameters.remove(search_param)
         self._counters_up_to_date = False
 
+    def clear_sort_fields(self) -> None:
+        """Clear all sort fields."""
+        self._sort_fields = []
+
+    def add_sort_field(self, name: str, *, descending: bool = True, dtype: FacedType = FacedType.NO_TYPE) -> None:
+        """
+        Add a sort field using the workspace search display name.
+        The Altium API expects DtoSortSearchField objects (Name + Descending).
+        """
+        del dtype
+        self._sort_fields.append(JsonDtoSortSearchField(Name=name, Descending=descending))
+
+    def get_sort_fields(self) -> List[JsonDtoSortSearchField]:
+        """Return the active sort fields."""
+        return list(self._sort_fields)
+
     def _get_search_parameter_range(self, full_name: str) -> Optional[JsonDtoSearchConditionBooleanQueryItem]:
         self._update_search_names_and_counters()
         for search_param in self._search_parameters:
@@ -641,39 +666,55 @@ class JsonConSearchAsync(JsonCon):
                 ret_val.append((counter.faced_name, counter.faced_type))
         return ret_val
 
+    def get_results_page(self, *, start: int = 0, limit: int = 500) -> List[SearchDataBase]:
+        """
+        Get a single page of search results.
+        :param start: Zero-based offset into the result set.
+        :param limit: Maximum number of documents to return.
+        """
+        limit = min(limit, 10000)
+        self._update_search_names_and_counters()
+        cmd_ret = self._send_command(
+            JsonSearchAsyncRequest(
+                Condition=JsonDtoSearchConditionBooleanQuery(Items=self._search_parameters),
+                SortFields=self._sort_fields,
+                Limit=limit,
+                Start=start,
+            ),
+            JsonSearchAsyncReturn,
+        )
+
+        if not cmd_ret.success:
+            raise ConnectionError("Failed to get search results")
+
+        results: List[SearchDataBase] = []
+        for doc in cmd_ret.documents:
+            data = SearchDataBase(altium_workspace=self._altium_workspace)
+            for field in doc.fields:
+                name, _ = self._get_facet_name_and_type(field.name)
+                value = field.value
+
+                for mf_name, mf_type in data.model_fields.items():
+                    if mf_type.alias is not None and mf_type.alias == name:
+                        name = mf_name
+                        break
+                self._add_data_to_data_base(data, name, value)
+
+            results.append(data)
+        return results
+
     def get_results(self, max_amount: int = 500) -> List[SearchDataBase]:
         """
         Get the search results
         :return: The search results
         """
         max_amount = min(max_amount, 10000)  # Max amount of results per request is 10000
-        self._update_search_names_and_counters()
         results: List[SearchDataBase] = []
         while len(results) < max_amount:
-            cmd_ret = self._send_command(
-                JsonSearchAsyncRequest(
-                    Condition=JsonDtoSearchConditionBooleanQuery(Items=self._search_parameters), Limit=min(max_amount - len(results), 10000), Start=len(results)
-                ),
-                JsonSearchAsyncReturn,
-            )
-
-            if not cmd_ret.success:
-                raise ConnectionError("Failed to get search results")
-
-            for doc in cmd_ret.documents:
-                data = SearchDataBase(altium_workspace=self._altium_workspace)
-                for field in doc.fields:
-                    name, _ = self._get_facet_name_and_type(field.name)
-                    value = field.value
-
-                    for mf_name, mf_type in data.model_fields.items():
-                        if mf_type.alias is not None and mf_type.alias == name:
-                            name = mf_name
-                            break
-                    self._add_data_to_data_base(data, name, value)
-
-                results.append(data)
-            if len(cmd_ret.documents) < 10000:
+            page_limit = min(max_amount - len(results), 10000)
+            page = self.get_results_page(start=len(results), limit=page_limit)
+            results.extend(page)
+            if len(page) < page_limit:
                 break
         return results
 

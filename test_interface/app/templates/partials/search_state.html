@@ -1,0 +1,11 @@
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<p>Hit count: <strong>{{ count }}</strong></p>
+<div>
+  {% for name, values in meta.terms.items() %}
+    <span class="chip">{{ name }}: {{ values|join(', ') }}</span>
+  {% endfor %}
+  {% for name, values in meta.ranges.items() %}
+    <span class="chip">{{ name }}: {{ values[0] }}–{{ values[1] }}</span>
+  {% endfor %}
+  {% if meta.wildcard %}<span class="chip">wildcard: {{ meta.wildcard }}</span>{% endif %}
+</div>

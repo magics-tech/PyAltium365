@@ -1,0 +1,28 @@
+<div>
+  <h2>Workspace</h2>
+  {% if not status.logged_in %}
+  <p class="muted">Log in to the portal first.</p>
+  {% else %}
+  <form hx-post="/partials/workspaces/connect" hx-target="#workspace-panel" hx-swap="innerHTML">
+    <label>Workspace URL or ID
+      <select name="workspace">
+        {% for ws in status.workspaces %}
+        <option value="{{ ws.hosting_url }}">{{ ws.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit">Connect</button>
+  </form>
+  {% if workspace %}
+  <p><span class="badge ok">Connected</span> <code>{{ workspace.workspace_url }}</code></p>
+  <table>
+    <thead><tr><th>Service</th><th>URL</th></tr></thead>
+    <tbody>
+    {% for row in workspace.service_urls %}
+      <tr><td>{{ row.service }}</td><td><code>{{ row.url }}</code></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endif %}
+</div>

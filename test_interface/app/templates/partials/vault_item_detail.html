@@ -1,0 +1,8 @@
+{% if item %}
+<h3>Item detail</h3>
+<p><strong>{{ item.hrid }}</strong> — {{ item.description or '' }}</p>
+<p>GUID: <code>{{ item.guid }}</code></p>
+<p>Folder: <code>{{ item.folder_guid or '' }}</code></p>
+{% else %}
+<p class="error">No item found for GUID <code>{{ guid }}</code></p>
+{% endif %}

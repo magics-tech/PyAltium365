@@ -14,17 +14,31 @@ nox.options.reuse_existing_virtualenvs = False
     python=['3.9', '3.10', '3.11', '3.12', '3.13'],
 )
 def tests(session):
-    session.install("-e", ".")  # Install the package in the virtualenv
+    session.install("-e", ".[dev]")  # Install the package in the virtualenv
     session.install('-r', 'requirements.txt')
-    session.run('pytest')
+    session.run('pytest', 'tests', 'test_interface/tests', '-m', 'not integration')
+
+
+@nox.session(python=['3.12'])
+def harness(session):
+    session.install("-e", ".[dev]")
+    session.install('-r', 'requirements.txt')
+    session.run('python', '-m', 'test_interface')
+
+
+@nox.session(python=['3.12'])
+def integration(session):
+    session.install("-e", ".[dev]")
+    session.install('-r', 'requirements.txt')
+    session.run('pytest', 'tests/integration', '-m', 'integration', '-v')
 
 
 @nox.session(python=['3.13'], requires=["tests-{python}"])
 def coverage(session):
-    session.install("-e", ".")  # Install the package in the virtualenv
+    session.install("-e", ".[dev]")  # Install the package in the virtualenv
     session.install('-r', 'requirements.txt')
     session.install("coverage")
-    session.run("coverage", 'run', '-m', 'pytest')
+    session.run("coverage", 'run', '-m', 'pytest', 'tests', 'test_interface/tests', '-m', 'not integration')
     session.run("coverage", 'report')
     session.run("coverage", 'xml')
     session.run("coverage", 'html')

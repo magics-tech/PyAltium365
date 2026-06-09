@@ -1,0 +1,18 @@
+<div class="tree">
+  {% macro render_nodes(nodes) %}
+  <ul>
+    {% for node in nodes %}
+    <li>
+      <button
+        hx-get="/api/vault/folders/{{ node.guid }}/items-ui"
+        hx-target="#vault-items"
+        hx-swap="innerHTML"
+      >{{ node.hrid or node.guid }}</button>
+      {% if node.children %}{{ render_nodes(node.children) }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endmacro %}
+  {{ render_nodes(folders) }}
+</div>
+<div id="vault-items"></div>

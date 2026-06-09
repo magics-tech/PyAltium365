@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid">
+  <div class="card" id="login-panel">
+    {% if status.portal_active %}
+      {% include "partials/status.html" %}
+    {% else %}
+      {% include "partials/login.html" %}
+    {% endif %}
+  </div>
+
+  <div class="card" id="workspace-panel">
+    <h2>Workspace</h2>
+    {% if status.portal_active %}
+      {% if status.workspace_connected %}
+        {% include "partials/workspace_connected.html" %}
+      {% else %}
+        <div id="workspace-picker">
+          {% include "partials/workspace_picker.html" %}
+        </div>
+      {% endif %}
+    {% else %}
+      <p>Log in to pick a workspace.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if status.workspace_connected %}
+<div class="grid">
+  <div class="card">
+    <h2>Vault</h2>
+    <div id="vault-tree" hx-get="/api/vault/tree-ui" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
+      Loading folders…
+    </div>
+    <form hx-get="/api/vault/lookup-ui" hx-target="#vault-lookup" hx-swap="innerHTML" style="margin-top:0.8rem">
+      <label>GUID lookup <input name="guid" required placeholder="item GUID"></label>
+      <button type="submit">Lookup</button>
+    </form>
+    <div id="vault-lookup"></div>
+  </div>
+
+  <div class="card">
+    <h2>Search</h2>
+    <button hx-post="/api/search/create-ui" hx-target="#search-panel" hx-swap="innerHTML">Create search session</button>
+    <div id="search-panel">
+      {% if status.has_search %}
+      <p>Search active — count: {{ status.search_count }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>Request trace <button hx-get="/trace-ui" hx-target="#trace-panel" hx-swap="innerHTML">Refresh</button></h2>
+  <div id="trace-panel" hx-get="/trace-ui" hx-trigger="load" hx-swap="innerHTML">Loading trace…</div>
+</div>
+{% endblock %}

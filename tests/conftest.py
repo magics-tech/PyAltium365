@@ -1,0 +1,36 @@
+"""Shared pytest fixtures for PyAltium365."""
+
+from __future__ import annotations
+
+import os
+from typing import Generator, Tuple
+
+import pytest
+
+from py_altium365.altium_api import AltiumApi
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "integration: live Altium 365 tests (requires ALTIUM_USER and ALTIUM_PASS)",
+    )
+
+
+@pytest.fixture
+def altium_credentials() -> Generator[Tuple[str, str], None, None]:
+    user = os.environ.get("ALTIUM_USER")
+    password = os.environ.get("ALTIUM_PASS")
+    if not user or not password:
+        pytest.skip("ALTIUM_USER and ALTIUM_PASS must be set for integration tests")
+    yield user, password
+
+
+@pytest.fixture
+def mock_altium_api(mocker):
+    api = mocker.Mock(spec=AltiumApi)
+    api.login.return_value = True
+    api.get_user_workspaces.return_value = []
+    api.login_workspace.return_value = None
+    api.get_service_url.return_value = None
+    return api

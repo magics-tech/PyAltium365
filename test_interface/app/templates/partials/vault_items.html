@@ -1,0 +1,15 @@
+<h3>Items in folder</h3>
+<table>
+  <thead><tr><th>HRID</th><th>GUID</th><th>Modified</th></tr></thead>
+  <tbody>
+  {% for item in items %}
+    <tr>
+      <td>{{ item.hrid or '' }}</td>
+      <td><code>{{ item.guid or '' }}</code></td>
+      <td>{{ item.last_modified_at or '' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3">No items</td></tr>
+  {% endfor %}
+  </tbody>
+</table>

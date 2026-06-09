@@ -1,0 +1,21 @@
+<div id="search-state">
+  {% include "partials/search_state.html" %}
+</div>
+<form hx-post="/api/search/patch-ui" hx-target="#search-state" hx-swap="innerHTML" hx-ext="json-enc">
+  <h3>Add filter</h3>
+  <select name="action">
+    <option value="set_content_types">Content types</option>
+    <option value="add_term">Facet term</option>
+    <option value="set_range">Facet range</option>
+    <option value="set_wildcard">Wildcard</option>
+    <option value="clear_all">Clear all</option>
+  </select>
+  <input name="facet_name" placeholder="Facet name">
+  <input name="value" placeholder="Value">
+  <input name="min_value" type="number" step="any" placeholder="Min">
+  <input name="max_value" type="number" step="any" placeholder="Max">
+  <input name="content_types" placeholder='Content types JSON e.g. ["Component"]'>
+  <button type="submit">Apply patch</button>
+</form>
+<button hx-get="/api/search/results-ui" hx-target="#search-results" hx-swap="innerHTML">Load results</button>
+<div id="search-results"></div>

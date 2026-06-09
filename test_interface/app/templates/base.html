@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PyAltium365 Test Harness</title>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1a1a1a; background: #f6f7f9; }
+    body { margin: 0; padding: 1.5rem; }
+    h1, h2, h3 { margin-top: 0; }
+    .card { background: #fff; border: 1px solid #d8dde6; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
+    .badge-ok { background: #d9f5e3; color: #0f6b2f; }
+    .badge-off { background: #eee; color: #666; }
+    .badge-err { background: #fde2e2; color: #9b1c1c; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 0.4rem 0.5rem; text-align: left; vertical-align: top; }
+    input, select, button { padding: 0.45rem 0.6rem; margin: 0.2rem 0; }
+    button { cursor: pointer; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .tree ul { list-style: none; padding-left: 1rem; }
+    .tree li { margin: 0.2rem 0; }
+    .chip { display: inline-block; background: #e8eefc; border-radius: 4px; padding: 0.15rem 0.4rem; margin: 0.1rem; font-size: 0.85rem; }
+    .error { color: #9b1c1c; }
+    code { font-size: 0.85rem; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>PyAltium365 Test Harness</h1>
+  {% block content %}{% endblock %}
+</body>
+</html>

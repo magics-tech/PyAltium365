@@ -1,0 +1,22 @@
+<h2>Portal status</h2>
+{% if result and not result.success %}
+<p class="error">{{ result.message }}</p>
+{% endif %}
+<p>
+  <span class="badge badge-ok">Portal active</span>
+  {% if status.workspace_connected %}
+  <span class="badge badge-ok">Workspace connected</span>
+  {% else %}
+  <span class="badge badge-off">No workspace</span>
+  {% endif %}
+</p>
+<p>Workspaces: <strong>{{ status.workspace_count }}</strong></p>
+{% if status.last_error %}<p class="error">{{ status.last_error }}</p>{% endif %}
+{% if workspaces %}
+<ul>
+  {% for ws in workspaces %}
+  <li>{{ ws.name }} — <code>{{ ws.hosting_url }}</code></li>
+  {% endfor %}
+</ul>
+{% endif %}
+<button hx-post="/logout" hx-target="#login-panel" hx-swap="innerHTML">Log out</button>
