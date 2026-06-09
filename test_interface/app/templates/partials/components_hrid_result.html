@@ -1,0 +1,17 @@
+{% if record %}
+<div class="card">
+  <h3>{{ record.hrid }}</h3>
+  <p>Update Date: {{ record.update_date }}</p>
+  <p>Revision State: {{ record.revision_state }}</p>
+  <p>Description: {{ record.description }}</p>
+  <p>Item GUID:
+    {% if record.item_guid and workspace_url %}
+    <a href="{{ workspace_url }}/components/item/{{ record.item_guid }}" target="_blank" rel="noopener">{{ record.item_guid }}</a>
+    {% else %}
+    <code>{{ record.item_guid }}</code>
+    {% endif %}
+  </p>
+</div>
+{% else %}
+<p class="error">No component found for HRID <code>{{ hrid }}</code></p>
+{% endif %}

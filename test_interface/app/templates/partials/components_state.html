@@ -1,0 +1,16 @@
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+<p>Start: <strong>{{ meta.query.start }}</strong> · Limit: <strong>{{ meta.query.limit }}</strong></p>
+<p>Order by:
+  {% for entry in meta.query.order_by %}
+    <span class="chip">{{ entry.name }}{% if entry.descending %} ↓{% else %} ↑{% endif %}</span>
+  {% endfor %}
+</p>
+<p>Fields:
+  {% for field in meta.query.fields %}
+    <span class="chip">{{ field }}</span>
+  {% endfor %}
+</p>
+{% if meta.query.text %}<p>Text: <code>{{ meta.query.text }}</code></p>{% endif %}
+{% if meta.query.tag %}<p>Tag: <code>{{ meta.query.tag }}</code></p>{% endif %}

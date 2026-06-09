@@ -5,7 +5,16 @@ from datetime import datetime
 from py_altium365.connection.soapy_con_service_discovery import ServiceEndpoints
 from py_altium365.connection.vault.soapy_con_vault_base import AluFolder, AluItem
 
-from test_interface.app.serializers import build_folder_tree, item_to_row, service_endpoints_to_rows, workspace_to_row
+from py_altium365.connection.components.components_api import ComponentRecord, ComponentsQuery
+
+from test_interface.app.serializers import (
+    build_folder_tree,
+    component_record_to_row,
+    components_query_to_row,
+    item_to_row,
+    service_endpoints_to_rows,
+    workspace_to_row,
+)
 
 
 def test_workspace_to_row(mocker):
@@ -51,3 +60,25 @@ def test_item_to_row():
 
     assert row.guid == "g1"
     assert row.hrid == "R1"
+
+
+def test_component_record_to_row():
+    record = ComponentRecord(
+        id=1,
+        item_guid="guid-1",
+        hrid="CMP-001",
+        update_date=datetime(2026, 6, 1, 12, 0, 0),
+        description="Cap",
+        revision_state="Draft",
+    )
+    row = component_record_to_row(record)
+    assert row.hrid == "CMP-001"
+    assert row.update_date == "2026-06-01T12:00:00"
+
+
+def test_components_query_to_row():
+    query = ComponentsQuery(text="test", limit=25)
+    row = components_query_to_row(query)
+    assert row.text == "test"
+    assert row.limit == 25
+    assert row.order_by[0].name == "Update Date"

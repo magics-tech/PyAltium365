@@ -53,6 +53,15 @@ def test_create_search_object(mocker):
     assert api.create_search_object() == "TEST"
 
 
+def test_create_components_client(mocker):
+    api, service_discovery = create_workspace_api(mocker)
+    service_discovery.service_urls.Library_Components_Api = "https://ws/components/api/components"
+    mocker.patch("py_altium365.altium_api_workspace.ConnectionHandler.get_instance", return_value=mocker.Mock())
+    mocker.patch("py_altium365.altium_api_workspace.ComponentsApiClient", return_value="COMPONENTS")
+
+    assert api.create_components_client() == "COMPONENTS"
+
+
 def test_create_search_object_no_search_base_url(mocker):
     api, service_discovery = create_workspace_api(mocker)
     service_discovery.service_urls.SEARCHBASE = None

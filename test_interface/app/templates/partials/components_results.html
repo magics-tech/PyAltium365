@@ -1,0 +1,33 @@
+<p>Showing {{ results|length }} of {{ total }} (start={{ start }}, limit={{ limit }})</p>
+{% if results %}
+<table>
+  <thead>
+    <tr>
+      <th>HRID</th>
+      <th>Update Date</th>
+      <th>Revision State</th>
+      <th>Description</th>
+      <th>Item GUID</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in results %}
+    <tr>
+      <td>{{ row.hrid }}</td>
+      <td>{{ row.update_date }}</td>
+      <td>{{ row.revision_state }}</td>
+      <td>{{ row.description }}</td>
+      <td>
+        {% if row.item_guid and workspace_url %}
+        <a href="{{ workspace_url }}/components/item/{{ row.item_guid }}" target="_blank" rel="noopener">{{ row.item_guid }}</a>
+        {% else %}
+        <code>{{ row.item_guid }}</code>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No results.</p>
+{% endif %}

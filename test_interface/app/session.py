@@ -8,13 +8,15 @@ from typing import Callable, List, Optional
 from py_altium365.altium_api import AltiumApi
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
 from py_altium365.base.connection_handler import ConnectionHandler
+from py_altium365.connection.components.components_api import ComponentRecord, ComponentsApiClient, ComponentsListPage, ComponentsQuery
 from py_altium365.connection.json_con_search_async import JsonConSearchAsync
 from py_altium365.connection.soapy_con_service_discovery import ServiceEndpoints
 from py_altium365.connection.soapy_con_workspace import UserWorkspaceInfo
 from py_altium365.connection.vault.soapy_con_vault_base import AluFolder, AluItem
 
+from test_interface.app.components_patch import ComponentsPatch, PatchError as ComponentsPatchError, apply_patch as apply_components_patch, default_components_query
 from test_interface.app.search_patch import PatchError, SearchPatch, apply_patch
-from test_interface.app.serializers import ScenarioDocument, SortFieldRow
+from test_interface.app.serializers import ComponentRow, ScenarioDocument, SortFieldRow, component_record_to_row, components_page_to_rows, components_query_to_row
 from test_interface.app.trace import TraceEntry, TracingSession
 
 
@@ -49,6 +51,8 @@ class HarnessSession:
         self._api: Optional[AltiumApi] = None
         self._workspace: Optional[AltiumApiWorkspace] = None
         self._search: Optional[JsonConSearchAsync] = None
+        self._components_client: Optional[ComponentsApiClient] = None
+        self._components_query: ComponentsQuery = default_components_query()
         self._credentials: tuple[str, str] = ("", "")
         self._last_error: str = ""
         self._tracing_session = TracingSession(max_entries=trace_max_entries)
@@ -89,6 +93,8 @@ class HarnessSession:
         self._api = None
         self._workspace = None
         self._search = None
+        self._components_client = None
+        self._components_query = default_components_query()
         self._credentials = ("", "")
         self._last_error = ""
 
@@ -113,12 +119,15 @@ class HarnessSession:
                 return False
             self._workspace = workspace
             self._search = None
+            self._components_client = None
+            self._components_query = default_components_query()
             self._last_error = ""
             return True
         except ConnectionError as exc:
             self._last_error = str(exc)
             self._workspace = None
             self._search = None
+            self._components_client = None
             return False
 
     def get_service_urls(self) -> ServiceEndpoints:
@@ -236,6 +245,60 @@ class HarnessSession:
                     sort_fields=[SortPatch(name=sf.name, descending=sf.descending) for sf in scenario.sort_fields],
                 )
             )
+
+    def create_components_client(self) -> ComponentsApiClient:
+        self._require_workspace()
+        self._components_client = self._workspace.create_components_client()  # type: ignore[union-attr]
+        return self._components_client
+
+    def get_components_query(self) -> ComponentsQuery:
+        self._require_workspace()
+        return self._components_query
+
+    def apply_components_patch(self, patch: ComponentsPatch) -> None:
+        self._require_workspace()
+        try:
+            self._components_query = apply_components_patch(self._components_query, patch)
+            self._last_error = ""
+        except ComponentsPatchError as exc:
+            self._last_error = str(exc)
+            raise
+
+    def get_components_meta(self) -> dict:
+        self._require_workspace()
+        from test_interface.app.components_patch import DEFAULT_FIELD_OPTIONS
+
+        return {
+            "field_options": DEFAULT_FIELD_OPTIONS,
+            "query": components_query_to_row(self._components_query).model_dump(),
+        }
+
+    def list_components_page(self, start: int | None = None, limit: int | None = None) -> ComponentsListPage:
+        self._require_workspace()
+        if self._components_client is None:
+            self.create_components_client()
+        query = self._components_query
+        updates = {}
+        if start is not None:
+            updates["start"] = start
+        if limit is not None:
+            updates["limit"] = limit
+        if updates:
+            query = query.model_copy(update=updates)
+        return self._components_client.list_page(query)  # type: ignore[union-attr]
+
+    def list_components_recent(self, updated_after, max_items: int | None = None) -> List[ComponentRow]:
+        self._require_workspace()
+        if self._components_client is None:
+            self.create_components_client()
+        records = self._components_client.list_recent(updated_after, max_items=max_items)  # type: ignore[union-attr]
+        return [component_record_to_row(record) for record in records]
+
+    def find_component_by_hrid(self, hrid: str) -> Optional[ComponentRecord]:
+        self._require_workspace()
+        if self._components_client is None:
+            self.create_components_client()
+        return self._components_client.find_by_hrid(hrid)  # type: ignore[union-attr]
 
     def get_trace(self) -> List[TraceEntry]:
         return self._tracing_session.get_trace()

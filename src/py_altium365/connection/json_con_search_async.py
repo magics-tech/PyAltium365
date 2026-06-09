@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Dict, Generic, List, Optional, Tuple, TypeVar,
 from pydantic import BaseModel, Field
 
 from py_altium365.base.connection_handler import ConnectionHandler
+from py_altium365.base.field_encoding import (
+    ENCODING_DECODING_NAMING,
+    SEARCHASYNC_FIELD_SUFFIX,
+    decode_field_name,
+    encode_field_name,
+)
 from py_altium365.connection.json_con import JsonCon, JsonRequest, JsonReturn
 
 if TYPE_CHECKING:
@@ -31,20 +37,7 @@ class FacedType(str, Enum):
         return FacedType.NO_TYPE
 
 
-encoding_decoding_naming = {
-    "_5F": "_",
-    "_20": " ",
-    "_28": "(",
-    "_29": ")",
-    "_2C": ",",
-    "_2D": "-",
-    "_2E": ".",
-    "_2F": "/",
-    "_40": "@",
-    "_5B": "[",
-    "_5D": "]",
-    "_5E": "^",
-}
+encoding_decoding_naming = ENCODING_DECODING_NAMING
 
 
 class JsonDtoSearchConditionBaseQuery(BaseModel):
@@ -770,23 +763,19 @@ class JsonConSearchAsync(JsonCon):
             name = indexed_name
             ftype = ""
 
-        return self._decode_naming_chars(name), FacedType(ftype)
+        return decode_field_name(name), FacedType(ftype)
 
     def _get_index_name_from_name_and_type(self, name: str, ftype: FacedType) -> str:
         if ftype == FacedType.NO_TYPE:
-            full_name = self._encode_naming_chars(name)
-            full_name += "DD420E8DDD8B445E911A0601BB2B6D53"
+            full_name = encode_field_name(name)
+            full_name += SEARCHASYNC_FIELD_SUFFIX
         else:
-            full_name = self._encode_naming_chars(name)
+            full_name = encode_field_name(name)
             full_name += "_5F" + ftype.value
         return full_name
 
     def _decode_naming_chars(self, inp: str) -> str:
-        for key, val in encoding_decoding_naming.items():
-            inp = inp.replace(key, val)
-        return inp
+        return decode_field_name(inp)
 
     def _encode_naming_chars(self, inp: str) -> str:
-        for key, val in encoding_decoding_naming.items():
-            inp = inp.replace(val, key)
-        return inp
+        return encode_field_name(inp)

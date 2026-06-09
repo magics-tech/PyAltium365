@@ -1,0 +1,34 @@
+<div id="components-builder">
+  <div id="components-state" style="margin-bottom:0.8rem">
+    {% include "partials/components_state.html" %}
+  </div>
+
+  <form hx-post="/api/components/patch-ui" hx-target="#components-state" hx-swap="innerHTML" hx-ext="json-enc">
+    <h3>Query patch</h3>
+    <select name="action">
+      <option value="set_text">Set text</option>
+      <option value="set_tag">Set tag</option>
+      <option value="set_pagination">Set pagination</option>
+      <option value="reset">Reset query</option>
+    </select>
+    <input name="text" placeholder="Text filter">
+    <input name="tag" placeholder="Tag filter">
+    <input name="start" type="number" placeholder="Start" value="{{ meta.query.start }}">
+    <input name="limit" type="number" placeholder="Limit" value="{{ meta.query.limit }}">
+    <button type="submit">Apply</button>
+  </form>
+
+  <button
+    hx-get="/api/components/results-ui?start={{ meta.query.start }}&limit={{ meta.query.limit }}"
+    hx-target="#components-results"
+    hx-swap="innerHTML"
+    style="margin-top:0.8rem"
+  >Fetch page</button>
+
+  <form hx-get="/api/components/hrid-ui" hx-target="#components-hrid" hx-swap="innerHTML" style="margin-top:0.8rem">
+    <label>HRID lookup <input name="hrid" required placeholder="CMP-001"></label>
+    <button type="submit">Lookup</button>
+  </form>
+  <div id="components-hrid"></div>
+  <div id="components-results" style="margin-top:0.8rem"></div>
+</div>

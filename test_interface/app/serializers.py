@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from py_altium365.connection.components.components_api import ComponentRecord, ComponentsListPage, ComponentsQuery
 from py_altium365.connection.json_con_search_async import SearchDataBase
 from py_altium365.connection.soapy_con_service_discovery import ServiceEndpoints
 from py_altium365.connection.soapy_con_workspace import UserWorkspaceInfo
@@ -47,6 +48,30 @@ class ItemRow(BaseModel):
     folder_guid: Optional[str] = None
     last_modified_at: Optional[str] = None
     is_active: bool = False
+
+
+class ComponentRow(BaseModel):
+    id: Optional[int] = None
+    item_guid: str = ""
+    hrid: str = ""
+    update_date: Optional[str] = None
+    description: str = ""
+    comment: str = ""
+    revision_state: str = ""
+
+
+class OrderByRow(BaseModel):
+    name: str
+    descending: bool = True
+
+
+class ComponentsQueryRow(BaseModel):
+    fields: List[str] = Field(default_factory=list)
+    order_by: List[OrderByRow] = Field(default_factory=list)
+    start: int = 0
+    limit: int = 50
+    text: str = ""
+    tag: str = ""
 
 
 class SearchResultRow(BaseModel):
@@ -120,6 +145,33 @@ def item_to_row(item: AluItem) -> ItemRow:
         folder_guid=item.folder_guid,
         last_modified_at=_iso(item.last_modified_at),
         is_active=item.is_active,
+    )
+
+
+def component_record_to_row(record: ComponentRecord) -> ComponentRow:
+    return ComponentRow(
+        id=record.id,
+        item_guid=record.item_guid,
+        hrid=record.hrid,
+        update_date=_iso(record.update_date),
+        description=record.description,
+        comment=record.comment,
+        revision_state=record.revision_state,
+    )
+
+
+def components_page_to_rows(page: ComponentsListPage) -> List[ComponentRow]:
+    return [component_record_to_row(item) for item in page.items]
+
+
+def components_query_to_row(query: ComponentsQuery) -> ComponentsQueryRow:
+    return ComponentsQueryRow(
+        fields=list(query.fields),
+        order_by=[OrderByRow(name=name, descending=descending) for name, descending in query.order_by],
+        start=query.start,
+        limit=query.limit,
+        text=query.text,
+        tag=query.tag,
     )
 
 

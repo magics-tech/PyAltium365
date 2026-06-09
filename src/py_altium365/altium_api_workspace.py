@@ -1,5 +1,7 @@
 from typing import Optional
 
+from py_altium365.base.connection_handler import ConnectionHandler
+from py_altium365.connection.components.components_api import ComponentsApiClient
 from py_altium365.connection.json_con_search_async import JsonConSearchAsync
 from py_altium365.connection.soapy_con_service_discovery import SoapyConServiceDiscovery
 from py_altium365.connection.vault.soapy_con_vault import SoapConVault
@@ -36,7 +38,29 @@ class AltiumApiWorkspace:
         """
         if self._service_discovery.service_urls.SEARCHBASE is None:
             raise ConnectionError("Failed to get search base URL")
-        return JsonConSearchAsync(self, self._service_discovery.service_urls.SEARCHBASE, self.session_guid, self.workspace_url.strip(":443").strip("https://"))
+        return JsonConSearchAsync(self, self._service_discovery.service_urls.SEARCHBASE, self.session_guid, self._workspace_host())
+
+    def create_components_client(self) -> ComponentsApiClient:
+        """Create a Components REST API client for this workspace."""
+        base_url = self._components_api_url()
+        return ComponentsApiClient(
+            ConnectionHandler.get_instance(),
+            base_url,
+            self.session_guid,
+            self._workspace_host(),
+        )
+
+    def _workspace_host(self) -> str:
+        return self.workspace_url.strip(":443").strip("https://")
+
+    def _components_api_url(self) -> str:
+        discovered = self._service_discovery.service_urls.Library_Components_Api
+        if discovered:
+            return discovered.rstrip("/")
+        workspace_base = self.workspace_url.rstrip("/")
+        if workspace_base.endswith(":443"):
+            workspace_base = workspace_base[:-4]
+        return f"{workspace_base}/components/api/components"
 
     def get_item_from_guid(self, guid: str) -> Optional[AluItem]:
         """
