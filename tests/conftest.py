@@ -8,8 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Generator, Tuple
 
 import pytest
-from requests import Response
-
 from py_altium365.altium_api import AltiumApi
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -52,10 +50,3 @@ def components_list_response() -> Dict[str, Any]:
     with (FIXTURES_DIR / "components_list_response.json").open(encoding="utf-8") as handle:
         return json.load(handle)
 
-
-def _mock_json_response(payload: Dict[str, Any], status_code: int = 200) -> Response:
-    response = Response()
-    response.status_code = status_code
-    response._content = json.dumps(payload).encode("utf-8")  # type: ignore[attr-defined]
-    response.encoding = "utf-8"
-    return response

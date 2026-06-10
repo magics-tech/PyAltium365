@@ -22,7 +22,6 @@ def test_rest_list_client_builds_orderby_params(mock_requests_session):
         mock_requests_session,
         "https://ws.example/components/api/components",
         "sess",
-        "ws.example",
     )
     query = ComponentsQuery(fields=["HRID"], order_by=[("Update Date", True)], limit=10)
     client.list_page(query)

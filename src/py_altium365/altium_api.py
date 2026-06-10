@@ -1,7 +1,12 @@
 from typing import List, Optional, Union
 
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
+from py_altium365.base.connection_handler import ConnectionHandler
 from py_altium365.base.enums import PrtGlobalService
+from py_altium365.connection.oauth.altium_identity_oauth import (
+    AltiumIdentityOAuth,
+    AltiumOAuthCredentials,
+)
 from py_altium365.connection.soapy_con_portal import SoapyConPortal
 from py_altium365.connection.soapy_con_service_discovery import SoapyConServiceDiscovery
 from py_altium365.connection.soapy_con_workspace import (
@@ -51,7 +56,18 @@ class AltiumApi:
         return True
 
     def login_workspace(
-        self, workspace: Union[UserWorkspaceInfo, str], username: str, password: str, return_message: bool = False, force_login: bool = False
+        self,
+        workspace: Union[UserWorkspaceInfo, str],
+        username: str,
+        password: str,
+        return_message: bool = False,
+        force_login: bool = False,
+        *,
+        oauth_refresh_token: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_client_secret: Optional[str] = None,
+        oauth_totp_code: Optional[str] = None,
+        use_oauth_for_rest: bool = True,
     ) -> Optional[AltiumApiWorkspace]:
         """
         Login to a workspace
@@ -74,7 +90,36 @@ class AltiumApi:
         service_discovery_con.login(username, password)
         if not service_discovery_con.user_info:
             return None
-        return AltiumApiWorkspace(workspace, service_discovery_con)
+
+        oauth_access_token: Optional[str] = None
+        oauth_uses_cookies = False
+        if use_oauth_for_rest:
+            oauth_client = AltiumIdentityOAuth(ConnectionHandler.get_instance())
+            if oauth_refresh_token and oauth_client_id and oauth_client_secret:
+                tokens = oauth_client.login_with_refresh_token(
+                    client_id=oauth_client_id,
+                    client_secret=oauth_client_secret,
+                    refresh_token=oauth_refresh_token,
+                )
+                oauth_access_token = tokens.access_token
+            else:
+                oauth_client.login_with_password(
+                    AltiumOAuthCredentials(
+                        username=username,
+                        password=password,
+                        workspace_url=workspace,
+                        totp_code=oauth_totp_code,
+                    ),
+                    service_session_guid=service_discovery_con.user_info.session_id,
+                )
+                oauth_uses_cookies = True
+
+        return AltiumApiWorkspace(
+            workspace,
+            service_discovery_con,
+            oauth_access_token=oauth_access_token,
+            oauth_uses_cookies=oauth_uses_cookies,
+        )
 
     def get_service_url(self, service: PrtGlobalService, force_request: bool = False) -> Optional[str]:
         """

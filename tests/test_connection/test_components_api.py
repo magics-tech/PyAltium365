@@ -31,7 +31,6 @@ def _make_client(mock_requests_session, mocker, base_url="https://ws.example/com
         mock_requests_session,
         base_url,
         "session-guid-123",
-        "ws.example",
     )
 
 
@@ -63,6 +62,7 @@ def test_list_page_builds_request(mock_requests_session, components_list_respons
     call_kwargs = mock_requests_session.get.call_args.kwargs
     assert call_kwargs["headers"]["Authorization"] == "AFSSessionID session-guid-123"
     assert call_kwargs["headers"]["User-Agent"] == "Altium Designer"
+    assert "host" not in call_kwargs["headers"]
     assert call_kwargs["params"]["limit"] == 50
     assert "fields[]" in call_kwargs["params"]
     assert "orderby[]" in call_kwargs["params"]
@@ -139,3 +139,21 @@ def test_create_components_client_on_workspace(mocker):
 
     assert isinstance(client, ComponentsApiClient)
     assert client._url == "https://ws.example/components/api/components"  # pylint: disable=protected-access
+
+
+def test_create_components_client_uses_workspace_components_path(mocker):
+    from py_altium365.altium_api_workspace import AltiumApiWorkspace
+
+    workspace_url = "https://magics-instruments-nv.365.altium.com:443"
+    service_discovery = mocker.Mock()
+    service_discovery.user_info.session_id = "sess-1"
+    service_discovery.service_urls.SEARCHBASE = "https://search"
+    service_discovery.service_urls.Library_Components_Api = (
+        "https://eur.365.altium.com/librarycomponentsapi/api"
+    )
+
+    mocker.patch("py_altium365.altium_api_workspace.ConnectionHandler.get_instance", return_value=mocker.Mock())
+    workspace = AltiumApiWorkspace(workspace_url, service_discovery)
+    client = workspace.create_components_client()
+
+    assert client._url == "https://magics-instruments-nv.365.altium.com/components/api/components"  # pylint: disable=protected-access

@@ -1,4 +1,5 @@
 from typing import Optional
+from urllib.parse import urlparse
 
 from py_altium365.base.connection_handler import ConnectionHandler
 from py_altium365.connection.components.components_api import ComponentsApiClient
@@ -11,11 +12,20 @@ from py_altium365.connection.vault.soapy_con_vault_base import (
     SoapMethodOption,
 )
 
+_DEFAULT_COMPONENTS_API_PATH = "/components/api/components"
+
 
 class AltiumApiWorkspace:
     """Altium API workspace class"""
 
-    def __init__(self, workspace_url: str, service_discovery: SoapyConServiceDiscovery):
+    def __init__(
+        self,
+        workspace_url: str,
+        service_discovery: SoapyConServiceDiscovery,
+        *,
+        oauth_access_token: Optional[str] = None,
+        oauth_uses_cookies: bool = False,
+    ):
         """
         Initialize the Altium API workspace object
         :param workspace_url: The URL of the workspace
@@ -27,6 +37,8 @@ class AltiumApiWorkspace:
         self.workspace_url: str = workspace_url
         self._service_discovery: SoapyConServiceDiscovery = service_discovery
         self.session_guid: str = service_discovery.user_info.session_id
+        self._oauth_access_token = oauth_access_token
+        self._oauth_uses_cookies = oauth_uses_cookies
         if self._service_discovery.service_urls.SEARCHBASE is None:
             raise ConnectionError("Failed to get search base URL")
         self._vault = SoapConVault(self)
@@ -43,24 +55,32 @@ class AltiumApiWorkspace:
     def create_components_client(self) -> ComponentsApiClient:
         """Create a Components REST API client for this workspace."""
         base_url = self._components_api_url()
+        auth_mode = "cookies" if self._oauth_uses_cookies else "afs"
         return ComponentsApiClient(
             ConnectionHandler.get_instance(),
             base_url,
             self.session_guid,
-            self._workspace_host(),
+            access_token=self._oauth_access_token,
+            auth_mode=auth_mode,
         )
 
-    def _workspace_host(self) -> str:
-        return self.workspace_url.strip(":443").strip("https://")
-
-    def _components_api_url(self) -> str:
-        discovered = self._service_discovery.service_urls.Library_Components_Api
-        if discovered:
-            return discovered.rstrip("/")
+    def _normalized_workspace_base(self) -> str:
         workspace_base = self.workspace_url.rstrip("/")
         if workspace_base.endswith(":443"):
             workspace_base = workspace_base[:-4]
-        return f"{workspace_base}/components/api/components"
+        return workspace_base
+
+    def _workspace_host(self) -> str:
+        return urlparse(self._normalized_workspace_base()).netloc
+
+    def _components_api_url(self) -> str:
+        """Build the workspace Components REST URL used by the Altium 365 web UI.
+
+        Service discovery's ``Library.Components.Api`` points at a regional gateway
+        (for example ``eur.365.altium.com/librarycomponentsapi/api``) that does not
+        serve the same list contract as the workspace endpoint below.
+        """
+        return f"{self._normalized_workspace_base()}{_DEFAULT_COMPONENTS_API_PATH}"
 
     def get_item_from_guid(self, guid: str) -> Optional[AluItem]:
         """

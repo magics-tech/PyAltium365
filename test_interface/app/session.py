@@ -16,7 +16,7 @@ from py_altium365.connection.vault.soapy_con_vault_base import AluFolder, AluIte
 
 from test_interface.app.components_patch import ComponentsPatch, PatchError as ComponentsPatchError, apply_patch as apply_components_patch, default_components_query
 from test_interface.app.search_patch import PatchError, SearchPatch, apply_patch
-from test_interface.app.serializers import ComponentRow, ScenarioDocument, SortFieldRow, component_record_to_row, components_page_to_rows, components_query_to_row
+from test_interface.app.serializers import ComponentRow, ScenarioDocument, SortFieldRow, component_record_to_row, components_query_to_row
 from test_interface.app.trace import TraceEntry, TracingSession
 
 

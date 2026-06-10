@@ -2,27 +2,44 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 from requests import Response, Session
+
+RestAuthMode = Literal["afs", "bearer", "cookies"]
 
 
 class RestCon:
     """Shared GET transport with Altium session authentication headers."""
 
-    def __init__(self, session: Session, url: str, session_guid: str, host: str) -> None:
+    def __init__(
+        self,
+        session: Session,
+        url: str,
+        session_guid: str = "",
+        *,
+        access_token: Optional[str] = None,
+        auth_mode: RestAuthMode = "afs",
+    ) -> None:
         self._session = session
         self._url = url
         self._session_guid = session_guid
-        self._host = host
+        self._access_token = access_token
+        if access_token:
+            self._auth_mode: RestAuthMode = "bearer"
+        else:
+            self._auth_mode = auth_mode
 
     def _auth_headers(self) -> Dict[str, str]:
-        return {
+        headers = {
             "Accept": "application/json",
-            "Authorization": f"AFSSessionID {self._session_guid}",
-            "host": self._host,
             "User-Agent": "Altium Designer",
         }
+        if self._auth_mode == "bearer" and self._access_token:
+            headers["Authorization"] = f"Bearer {self._access_token}"
+        elif self._auth_mode == "afs" and self._session_guid:
+            headers["Authorization"] = f"AFSSessionID {self._session_guid}"
+        return headers
 
     def _get(self, path: str = "", params: Optional[Dict[str, Any]] = None) -> Response:
         url = self._url if not path else f"{self._url.rstrip('/')}/{path.lstrip('/')}"
