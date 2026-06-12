@@ -8,6 +8,8 @@ from py_altium365.connection.soapy_con import SoapMethod, SoapResponse
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
+    AluItemRevision,
+    AluItemRevisionLink,
     SoapConVaultBase,
     SoapMethodOption,
 )
@@ -80,6 +82,70 @@ class SoapResponseVaultGetAluFolders(
     )
 
 
+class SoapMethodVaultGetAluItemRevisions(
+    SoapMethod,
+    tag="GetALU_ItemRevisions",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP method for getting ALU item revisions."""
+
+    session_handle: str = element(tag="SessionHandle")
+    p_filter: Optional[str] = element(tag="Filter", default=None)
+    options: List[SoapMethodOption] = wrapped(
+        path="Options",
+        entity=element(tag="item"),
+        default=[],
+    )
+
+
+class SoapResponseVaultGetAluItemRevisions(
+    SoapResponse,
+    tag="GetALU_ItemRevisionsResponse",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP response for getting ALU item revisions."""
+
+    records: List[AluItemRevision] = wrapped(
+        path="Records",
+        tag="item",
+        default=[],
+    )
+
+
+class SoapMethodVaultGetAluItemRevisionLinks(
+    SoapMethod,
+    tag="GetALU_ItemRevisionLinks",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP method for getting ALU item revision links."""
+
+    session_handle: str = element(tag="SessionHandle")
+    p_filter: Optional[str] = element(tag="Filter", default=None)
+    options: List[SoapMethodOption] = wrapped(
+        path="Options",
+        entity=element(tag="item"),
+        default=[],
+    )
+
+
+class SoapResponseVaultGetAluItemRevisionLinks(
+    SoapResponse,
+    tag="GetALU_ItemRevisionLinksResponse",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP response for getting ALU item revision links."""
+
+    records: List[AluItemRevisionLink] = wrapped(
+        path="Records",
+        tag="item",
+        default=[],
+    )
+
+
 class SoapConVault(SoapConVaultBase):
     """SOAP connection class for Altium Vault operations."""
 
@@ -96,6 +162,38 @@ class SoapConVault(SoapConVaultBase):
             header=None,
             method=SoapMethodVaultGetAluItems(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
             return_method=SoapResponseVaultGetAluItems,
+        )
+        return response.records
+
+    def get_alu_item_revisions(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluItemRevision]:
+        """
+        Get ALU item revisions from the vault.
+        :param p_filter: Optional filter string to apply to the query.
+        :param options: A list of options to apply to the query.
+        :return: The response containing ALU item revisions.
+        """
+        if options is None:
+            options = []
+        response = self._send_command(
+            header=None,
+            method=SoapMethodVaultGetAluItemRevisions(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
+            return_method=SoapResponseVaultGetAluItemRevisions,
+        )
+        return response.records
+
+    def get_alu_item_revision_links(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluItemRevisionLink]:
+        """
+        Get ALU item revision links from the vault.
+        :param p_filter: Optional filter string to apply to the query.
+        :param options: A list of options to apply to the query.
+        :return: The response containing ALU item revision links.
+        """
+        if options is None:
+            options = []
+        response = self._send_command(
+            header=None,
+            method=SoapMethodVaultGetAluItemRevisionLinks(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
+            return_method=SoapResponseVaultGetAluItemRevisionLinks,
         )
         return response.records
 

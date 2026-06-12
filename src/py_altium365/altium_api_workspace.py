@@ -9,6 +9,8 @@ from py_altium365.connection.vault.soapy_con_vault import SoapConVault
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
+    AluItemRevision,
+    AluItemRevisionLink,
     SoapMethodOption,
 )
 
@@ -89,7 +91,54 @@ class AltiumApiWorkspace:
         :return: A list of AluItem objects matching the GUID
         """
         items = self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
-        return items[0] if len(items) > 0 else None
+        if len(items) == 0:
+            return None
+        return items[0]
+
+    def get_item_revisions_for_item(self, item: AluItem) -> list[AluItemRevision]:
+        """
+        Get all revisions for a vault item.
+        :param item_guid: The GUID of the parent item.
+        """
+        return self._vault.get_alu_item_revisions(
+            options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS],
+            p_filter="ItemGUID='" + item.guid + "'",
+        )
+
+    def get_latest_item_revision_from_item(self, item: AluItem) -> Optional[AluItemRevision]:
+        """
+        Get the latest item revision for a given item.
+        :param item: The item to get the latest revision for.
+        :return: An AluItemRevision object if found, otherwise None.
+        """
+        revisions = self.get_item_revisions_for_item(item)
+        latest = revisions[0]
+        for revision in revisions:
+            if revision.revision_id > latest.revision_id:
+                latest = revision
+        return latest
+
+    def get_child_item_revisions(self, parent_revision_guid: str) -> list[AluItemRevision]:
+        """
+        Get child item revisions linked to a parent item revision.
+        :param parent_revision_guid: The GUID of the parent item revision.
+        """
+        links = self._vault.get_alu_item_revision_links(
+            options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS],
+            p_filter="ParentItemRevisionGUID='" + parent_revision_guid + "'",
+        )
+        children: list[AluItemRevision] = []
+        for link in links:
+            self._bind_vault_revision_link(link)
+            if link.child_item_revision is not None:
+                children.append(link.child_item_revision)
+                continue
+            if link.child_item_revision_guid is None:
+                continue
+            revision = self.get_item_revision_from_guid(link.child_item_revision_guid)
+            if revision is not None:
+                children.append(revision)
+        return children
 
     def get_items_in_folder(self, folder: AluFolder) -> list[AluItem]:
         """
@@ -99,7 +148,8 @@ class AltiumApiWorkspace:
         """
         if folder.guid is None:
             return []
-        return self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="FolderGUID='" + folder.guid + "'")
+        items = self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="FolderGUID='" + folder.guid + "'")
+        return [self._bind_vault_item(item) for item in items]
 
     def get_all_folders(self) -> list[AluFolder]:
         """

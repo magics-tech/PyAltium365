@@ -3,6 +3,7 @@ from typing import Tuple, Any
 import pytest
 
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
+from py_altium365.connection.vault.soapy_con_vault_base import AluItem
 
 
 def create_workspace_api(mocker) -> Tuple[AltiumApiWorkspace, Any]:
@@ -85,12 +86,13 @@ def test_get_items_in_folder(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
     folder.guid = "folder-guid"
-    item = mocker.Mock()
+    item = AluItem(guid="item-guid")
     api._vault.get_alu_items = mocker.Mock(return_value=[item])
 
     result = api.get_items_in_folder(folder)
 
     assert result == [item]
+    assert result[0]._altium_workspace is api
     api._vault.get_alu_items.assert_called_once()
 
 
@@ -104,12 +106,13 @@ def test_get_items_in_folder_no_guid(mocker):
 
 def test_get_item_from_guid(mocker):
     api, _ = create_workspace_api(mocker)
-    item = mocker.Mock()
+    item = AluItem(guid="item-guid")
     api._vault.get_alu_items = mocker.Mock(return_value=[item])
 
     result = api.get_item_from_guid("item-guid")
 
     assert result is item
+    assert result._altium_workspace is api
 
 
 def test_get_item_from_guid_missing(mocker):

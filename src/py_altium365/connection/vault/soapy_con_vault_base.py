@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, List, Optional
 
+from pydantic import PrivateAttr
 from pydantic_xml import BaseXmlModel, element, wrapped
 
 from py_altium365.base.connection_handler import ConnectionHandler
@@ -95,6 +96,26 @@ class AluItemRevision(AluShareableObject, tag="item", nsmap={"temp": "http://tem
     is_applicable: Optional[bool] = element(tag="IsApplicable", default=None)
     is_active: Optional[bool] = element(tag="IsActive", default=None)
 
+    def get_item(self, altium_workspace: "AltiumApiWorkspace") -> Optional["AluItem"]:
+        """Get the parent item for this revision."""
+        if self.item_guid is None:
+            return None
+        return altium_workspace.get_item_from_guid(self.item_guid)
+
+    def get_child_item_revisions(self, altium_workspace: "AltiumApiWorkspace") -> List["AluItemRevision"]:
+        """Get child item revisions linked to this revision (for example symbol/footprint children of a component)."""
+        if self.guid is None:
+            return []
+        return altium_workspace.get_child_item_revisions(self.guid)
+
+
+class AluItemRevisionLink(AluObject):
+    """Class representing a parent/child link between item revisions in Altium Vault."""
+
+    parent_item_revision_guid: Optional[str] = element(tag="ParentItemRevisionGUID", default=None)
+    child_item_revision_guid: Optional[str] = element(tag="ChildItemRevisionGUID", default=None)
+    child_item_revision: Optional[AluItemRevision] = element(tag="ChildItemRevision", default=None)
+
 
 class AluTag(AluObject):
     """Class representing a tag in Altium Vault."""
@@ -148,6 +169,14 @@ class AluItem(AluShareableObject, tag="item", nsmap={"temp": "http://tempuri.org
         if self.folder_guid:
             return altium_workspace.get_folder_from_guid(self.folder_guid)
         return None
+
+    def get_latest_item_revision(self, altium_workspace: "AltiumApiWorkspace") -> Optional[AluItemRevision]:
+        """
+        Get the latest item revision for this item.
+        :param altium_workspace: The Altium API workspace object.
+        :return: An AluItemRevision object if found, otherwise None.
+        """
+        return altium_workspace.get_latest_item_revision_from_item(self)
 
 
 class AluFolderParameter(AluObject):

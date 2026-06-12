@@ -18,7 +18,7 @@ print(api.login(user_name, password))
 print(api.get_service_url(PrtGlobalService.WORKSPACE))
 
 ws = api.get_user_workspaces()
-cws = api.login_workspace(ws[1], user_name, password)
+cws = api.login_workspace(ws[0], user_name, password)
 if cws is None:
     raise ValueError("Failed to login to workspace")
 
@@ -34,10 +34,16 @@ print(so.get_current_count())
 print(so.get_all_search_names_and_type_range())
 
 so.add_search_parameter_range("Voltage", 1, 32, dtype=FacedType.VOLTAGE)
+so.add_search_parameter("LifeCycle", "Waiting for review")
 
 print(so.get_current_count())
 results = so.get_results(max_amount=100)
-print(results[0].get_item())
+
+children = results[0].get_item().get_latest_item_revision(cws).get_child_item_revisions(cws)
+for child in children:
+    print(child.get_item().get_name())
+
+print(results[0].get_item().get_name())
 
 
 # amount = {}

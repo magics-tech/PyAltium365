@@ -18,6 +18,7 @@ from py_altium365.connection.json_con import JsonCon, JsonRequest, JsonReturn
 
 if TYPE_CHECKING:
     from py_altium365.altium_api_workspace import AltiumApiWorkspace
+    from py_altium365.connection.vault.soapy_con_vault_base import AluItem
 
 
 class FacedType(str, Enum):
@@ -202,10 +203,10 @@ class SearchDataBase(BaseModel):
     update_date: datetime = Field(alias="Update Date", default=datetime(1899, 12, 31))
     content_type: str = Field(alias="ContentType", default="")
 
-    def get_item(self) -> Optional[str]:
+    def get_item(self) -> Optional["AluItem"]:
         """
         Get the item from the Altium workspace using the item GUID.
-        :return:
+        :return: The vault item, if found.
         """
         if hasattr(self.altium_workspace, "get_item_from_guid"):
             return self.altium_workspace.get_item_from_guid(self.item_guid)
