@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import PrivateAttr
 from pydantic_xml import BaseXmlModel, element, wrapped
+from pydantic_xml.element import SearchMode
 
 from py_altium365.base.connection_handler import ConnectionHandler
 from py_altium365.connection.soapy_con import SoapyCon
@@ -24,7 +25,7 @@ class SoapMethodOption(str, Enum):
 
 class AluObject(BaseXmlModel, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
     """Base class for Altium Vault objects."""
-
+    
     guid: Optional[str] = element(tag="GUID", default=None)
     hrid: Optional[str] = element(tag="HRID", default=None)
     created_at: Optional[datetime] = element(tag="CreatedAt", default=None)
@@ -38,6 +39,10 @@ class AluObject(BaseXmlModel, tag="item", nsmap={"temp": "http://tempuri.org/"},
 class AluShareableObject(AluObject):
     """Base class for shareable Altium Vault objects."""
 
+    is_created_by_masked: Optional[bool] = element(tag="IsCreatedByMasked", default=None)
+    is_last_modified_by_masked: Optional[bool] = element(tag="IsLastModifiedByMasked", default=None)
+    is_created_by_workspace_guest: Optional[bool] = element(tag="IsCreatedByWorkspaceGuest", default=None)
+    is_last_modified_by_workspace_guest: Optional[bool] = element(tag="IsLastModifiedByWorkspaceGuest", default=None)
     sharing_control: Optional[int] = element(tag="SharingControl", default=None)
     access_rights: Optional[int] = element(tag="AccessRights", default=None)
 
@@ -106,10 +111,10 @@ class AluItemRevision(AluShareableObject, tag="item", nsmap={"temp": "http://tem
         """Get child item revisions linked to this revision (for example symbol/footprint children of a component)."""
         if self.guid is None:
             return []
-        return altium_workspace.get_child_item_revisions(self.guid)
+        return altium_workspace.get_child_item_revisions_from_item_revision(self)
 
 
-class AluItemRevisionLink(AluObject):
+class AluItemRevisionLink(AluObject, search_mode=SearchMode.UNORDERED):
     """Class representing a parent/child link between item revisions in Altium Vault."""
 
     parent_item_revision_guid: Optional[str] = element(tag="ParentItemRevisionGUID", default=None)
@@ -177,6 +182,13 @@ class AluItem(AluShareableObject, tag="item", nsmap={"temp": "http://tempuri.org
         :return: An AluItemRevision object if found, otherwise None.
         """
         return altium_workspace.get_latest_item_revision_from_item(self)
+
+    def get_name(self) -> Optional[str]:
+        """
+        Get the name of this item.
+        :return: The name of this item.
+        """
+        return self.hrid
 
 
 class AluFolderParameter(AluObject):

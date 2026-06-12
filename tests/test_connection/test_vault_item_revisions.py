@@ -1,14 +1,19 @@
 """Unit tests for vault item revision helpers."""
 
 from datetime import datetime
+from pathlib import Path
 
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
+from py_altium365.connection.soapy_con import SoapBody, SoapEnvelope, SoapHeader
+from py_altium365.connection.vault.soapy_con_vault import SoapResponseVaultGetAluItemRevisions
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluItem,
     AluItemRevision,
     AluItemRevisionLink,
     pick_latest_item_revision,
 )
+
+_FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
 
 def create_workspace_api(mocker):
@@ -18,17 +23,19 @@ def create_workspace_api(mocker):
     return AltiumApiWorkspace("https://workspace.example", service_discovery)
 
 
-def test_pick_latest_item_revision_prefers_active_and_newest_release():
-    older = AluItemRevision(
-        guid="rev-1",
-        is_active=True,
-        release_date=datetime(2024, 1, 1),
-    )
-    newer = AluItemRevision(
-        guid="rev-2",
-        is_active=True,
-        release_date=datetime(2025, 1, 1),
-    )
+def test_item_revision_xml_parses_revision_id():
+    xml = (_FIXTURES_DIR / "item_revisions_response.xml").read_bytes()
+    shape = SoapEnvelope[SoapHeader, SoapBody[SoapResponseVaultGetAluItemRevisions]]
+    revision = shape.from_xml(xml).body.method.records[0]
+
+    assert revision.revision_id == "1"
+    assert revision.item_guid == "AE505432-BEDD-463D-B5DA-A85E1C0D88F1"
+    assert revision.comment == "61202421721"
+
+
+def test_pick_latest_item_revision_prefers_highest_revision_id():
+    older = AluItemRevision(guid="rev-1", revision_id="1")
+    newer = AluItemRevision(guid="rev-2", revision_id="2")
 
     assert pick_latest_item_revision([older, newer]) is newer
 
@@ -60,7 +67,7 @@ def test_alu_item_get_latest_item_revision_fetches_from_workspace(mocker):
     latest = item.get_latest_item_revision()
 
     assert latest is revision
-    api.get_item_revisions_for_item.assert_called_once_with("item-1")
+    api.get_item_revisions_for_item.assert_called_once_with(item)
 
 
 def test_get_child_item_revisions_uses_embedded_child_revision(mocker):

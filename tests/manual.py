@@ -19,7 +19,7 @@ print(api.login(user_name, password))
 print(api.get_service_url(PrtGlobalService.WORKSPACE))
 
 ws = api.get_user_workspaces()
-cws = api.login_workspace(ws[0], user_name, password, oauth_totp_secret=totp_secret)
+cws = api.login_workspace(ws[1], user_name, password, oauth_totp_secret=totp_secret)
 if cws is None:
     raise ValueError("Failed to login to workspace")
 
@@ -42,7 +42,8 @@ results = so.get_results(max_amount=100)
 
 children = results[0].get_item().get_latest_item_revision(cws).get_child_item_revisions(cws)
 for child in children:
-    print(child.get_item().get_name())
+    item = child.get_item(cws)
+    print(item.get_name())
 
 print(results[0].get_item().get_name())
 

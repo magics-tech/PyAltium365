@@ -95,6 +95,20 @@ class AltiumApiWorkspace:
             return None
         return items[0]
 
+    def get_item_revision_from_guid(self, guid: str) -> Optional[AluItemRevision]:
+        """
+        Get an item revision from the vault using its GUID
+        :param guid: The GUID of the item revision to retrieve
+        :return: An AluItemRevision object matching the GUID
+        """
+        revisions = self._vault.get_alu_item_revisions(
+            options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS],
+            p_filter="GUID='" + guid + "'",
+        )
+        if len(revisions) == 0:
+            return None
+        return revisions[0]
+
     def get_item_revisions_for_item(self, item: AluItem) -> list[AluItemRevision]:
         """
         Get all revisions for a vault item.
@@ -118,27 +132,50 @@ class AltiumApiWorkspace:
                 latest = revision
         return latest
 
-    def get_child_item_revisions(self, parent_revision_guid: str) -> list[AluItemRevision]:
+    def get_item_revision_link_from_item_revision(self, item_revision: AluItemRevision, child: bool = True) -> list[AluItemRevisionLink]:
         """
-        Get child item revisions linked to a parent item revision.
-        :param parent_revision_guid: The GUID of the parent item revision.
+        Get item revision links from a given item revision.
+        :param item_revision: The item revision to get links from.
+        :param child: Whether to get child links (True) or parent links (False).
+        :return: A list of AluItemRevisionLink objects.
         """
-        links = self._vault.get_alu_item_revision_links(
-            options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS],
-            p_filter="ParentItemRevisionGUID='" + parent_revision_guid + "'",
+        filter = "ParentItemRevisionGUID" if child else "ChildItemRevisionGUID"
+        return self._vault.get_alu_item_revision_links(
+            p_filter=f"{filter}='{item_revision.guid}'",
         )
-        children: list[AluItemRevision] = []
-        for link in links:
-            self._bind_vault_revision_link(link)
-            if link.child_item_revision is not None:
-                children.append(link.child_item_revision)
+
+    def get_child_item_revisions_from_item_revision(self, item_revision: AluItemRevision) -> list[AluItemRevision]:
+        """
+        Get child item revisions from a given item revision.
+        :param item_revision: The item revision to get child revisions from.
+        :return: A list of AluItemRevision objects.
+        """
+        lin = self.get_item_revision_link_from_item_revision(item_revision, True)
+        lout = []
+        for li in lin:
+            if li.child_item_revision is not None:
+                lou = li.child_item_revision
+            elif li.child_item_revision_guid is not None:
+                lou = self.get_item_revision_from_guid(li.child_item_revision_guid)
+            else:
                 continue
-            if link.child_item_revision_guid is None:
-                continue
-            revision = self.get_item_revision_from_guid(link.child_item_revision_guid)
-            if revision is not None:
-                children.append(revision)
-        return children
+            if lou is not None:
+                lout.append(lou)
+        return lout
+
+    def get_parent_item_revisions_from_item_revision(self, item_revision: AluItemRevision) -> list[AluItemRevision]:
+        """
+        Get parent item revisions from a given item revision.
+        :param item_revision: The item revision to get parent revisions from.
+        :return: A list of AluItemRevision objects.
+        """
+        lin = self.get_item_revision_link_from_item_revision(item_revision, False)
+        lout = []
+        for li in lin:
+            lou = self.get_item_revision_from_guid(li.parent_item_revision_guid)
+            if lou is not None:
+                lout.append(lou)
+        return lout
 
     def get_items_in_folder(self, folder: AluFolder) -> list[AluItem]:
         """

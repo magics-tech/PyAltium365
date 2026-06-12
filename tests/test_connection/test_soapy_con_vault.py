@@ -1,6 +1,9 @@
 """Unit tests for vault SOAP client."""
 
-from py_altium365.connection.vault.soapy_con_vault import SoapConVault
+from pathlib import Path
+
+from py_altium365.connection.soapy_con import SoapBody, SoapEnvelope, SoapHeader
+from py_altium365.connection.vault.soapy_con_vault import SoapConVault, SoapResponseVaultGetAluItemRevisionLinks
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
@@ -49,6 +52,17 @@ def test_get_alu_item_revisions(mocker):
     revisions = vault.get_alu_item_revisions(p_filter="ItemGUID='item-1'")
 
     assert revisions == [revision]
+
+
+def test_item_revision_link_xml_parses_child_guid_before_nested_revision():
+    xml = (Path(__file__).parent.parent / "fixtures" / "item_revision_links_response.xml").read_bytes()
+    shape = SoapEnvelope[SoapHeader, SoapBody[SoapResponseVaultGetAluItemRevisionLinks]]
+    link = shape.from_xml(xml).body.method.records[0]
+
+    assert link.parent_item_revision_guid == "PARENT-GUID"
+    assert link.child_item_revision_guid == "35C7CB7F-D7AA-4207-B748-F68BE91242A7"
+    assert link.child_item_revision is not None
+    assert link.child_item_revision.guid == "35C7CB7F-D7AA-4207-B748-F68BE91242A7"
 
 
 def test_get_alu_item_revision_links(mocker):
