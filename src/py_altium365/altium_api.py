@@ -67,6 +67,7 @@ class AltiumApi:
         oauth_client_id: Optional[str] = None,
         oauth_client_secret: Optional[str] = None,
         oauth_totp_code: Optional[str] = None,
+        oauth_totp_secret: Optional[str] = None,
         use_oauth_for_rest: bool = True,
     ) -> Optional[AltiumApiWorkspace]:
         """
@@ -109,6 +110,7 @@ class AltiumApi:
                         password=password,
                         workspace_url=workspace,
                         totp_code=oauth_totp_code,
+                        totp_secret=oauth_totp_secret,
                     ),
                     service_session_guid=service_discovery_con.user_info.session_id,
                 )

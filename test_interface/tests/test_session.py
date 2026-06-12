@@ -78,3 +78,27 @@ def test_connect_workspace_requires_portal():
     session = HarnessSession()
     with pytest.raises(PermissionError):
         session.connect_workspace("https://ws.example")
+
+
+def test_connect_workspace_passes_totp_secret(mocker, monkeypatch):
+    monkeypatch.setenv("ALTIUM_TOTP_SECRET", "JBSWY3DPEHPK3PXP")
+    api = mocker.Mock()
+    ws = mocker.Mock()
+    ws.workspace_id = 1
+    ws.hosting_url = "https://ws.example"
+    ws.name = "Main"
+    api.get_user_workspaces.return_value = [ws]
+    workspace = mocker.Mock()
+    api.login_workspace.return_value = workspace
+
+    session = HarnessSession(api_factory=lambda: api)
+    session._api = api
+    session._credentials = ("user", "pass")
+
+    assert session.connect_workspace("https://ws.example") is True
+    api.login_workspace.assert_called_once_with(
+        ws,
+        "user",
+        "pass",
+        oauth_totp_secret="JBSWY3DPEHPK3PXP",
+    )

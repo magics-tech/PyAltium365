@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Generator, Tuple
+from typing import Any, Dict, Generator, Optional, Tuple
 
 import pytest
 from py_altium365.altium_api import AltiumApi
@@ -27,6 +27,11 @@ def altium_credentials() -> Generator[Tuple[str, str], None, None]:
     if not user or not password:
         pytest.skip("ALTIUM_USER and ALTIUM_PASS must be set for integration tests")
     yield user, password
+
+
+@pytest.fixture
+def altium_totp_secret() -> Generator[Optional[str], None, None]:
+    yield os.environ.get("ALTIUM_TOTP_SECRET")
 
 
 @pytest.fixture

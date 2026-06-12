@@ -14,7 +14,10 @@ Create a `.env` file (or export variables) with portal credentials:
 ```env
 ALTIUM_USER=your@email
 ALTIUM_PASS=your-password
+ALTIUM_TOTP_SECRET=your-base32-authenticator-key
 ```
+
+`ALTIUM_TOTP_SECRET` is the base32 key shown when setting up your authenticator app (the same value you would scan from a QR code). It is as sensitive as your password. Workspace connect uses it to generate TOTP codes automatically when Altium requires MFA.
 
 ## Run the harness
 

@@ -10,6 +10,8 @@ from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
 from requests import Response, Session
 
+from py_altium365.connection.oauth.totp import generate_totp_code
+
 _AUTH_BASE = "https://auth.altium.com"
 _TOKEN_URL = f"{_AUTH_BASE}/connect/token"
 _JSON_CONTENT_TYPE = "application/json-patch+json"
@@ -27,6 +29,7 @@ class AltiumOAuthCredentials:
     workspace_url: str
     workspace_id: Optional[str] = None
     totp_code: Optional[str] = None
+    totp_secret: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -87,7 +90,11 @@ class AltiumIdentityOAuth:
             },
         )
         next_url = signin.get("returnUrl", "")
-        next_url = self._complete_two_factor(next_url, credentials.totp_code)
+        next_url = self._complete_two_factor(
+            next_url,
+            totp_code=credentials.totp_code,
+            totp_secret=credentials.totp_secret,
+        )
         self._follow_authorize_callback(next_url)
         self._bootstrap_workspace_session(workspace_base)
         self._tokens = AltiumOAuthTokens(access_token=None)
@@ -176,14 +183,24 @@ class AltiumIdentityOAuth:
                 return True
         return False
 
-    def _complete_two_factor(self, next_url: str, totp_code: Optional[str]) -> str:
+    def _complete_two_factor(
+        self,
+        next_url: str,
+        *,
+        totp_code: Optional[str] = None,
+        totp_secret: Optional[str] = None,
+    ) -> str:
         if "/2fa" not in next_url:
             return next_url
 
-        if totp_code:
+        resolved_code = totp_code
+        if not resolved_code and totp_secret:
+            resolved_code = generate_totp_code(totp_secret)
+
+        if resolved_code:
             result = self._json_post(
                 f"{_AUTH_BASE}/api/2fa/challenge",
-                {"code": totp_code},
+                {"code": resolved_code},
             )
             return result.get("returnUrl", next_url)
 

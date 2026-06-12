@@ -18,6 +18,7 @@ dependencies  = [
     "requests>=2",
     "pydantic>=2.0.0",
     "pydantic-xml>=2.14.0",
+    "pyotp>=2.9",
 ]
 license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"
 authors = [

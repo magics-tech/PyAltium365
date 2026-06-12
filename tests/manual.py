@@ -11,6 +11,7 @@ load_dotenv()
 api = AltiumApi()
 user_name = os.environ.get("ALTIUM_USER")
 password = os.environ.get("ALTIUM_PASS")
+totp_secret = os.environ.get("ALTIUM_TOTP_SECRET")
 if user_name is None or password is None:
     raise ValueError("Please set the ALTIUM_USER and ALTIUM_PASS environment variables")
 
@@ -18,7 +19,7 @@ print(api.login(user_name, password))
 print(api.get_service_url(PrtGlobalService.WORKSPACE))
 
 ws = api.get_user_workspaces()
-cws = api.login_workspace(ws[0], user_name, password)
+cws = api.login_workspace(ws[0], user_name, password, oauth_totp_secret=totp_secret)
 if cws is None:
     raise ValueError("Failed to login to workspace")
 

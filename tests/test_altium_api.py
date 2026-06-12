@@ -74,8 +74,40 @@ def test_login_workspace(mocker):
     api._workspace_con = mock_soapy_con_workspace
 
     mocker.patch("py_altium365.altium_api.AltiumApiWorkspace", return_value="test_workspace")
+    oauth_login = mocker.patch("py_altium365.altium_api.AltiumIdentityOAuth")
 
     assert api.login_workspace("test_workspace", "test_user", "test_pass") == "test_workspace"
+    oauth_login.return_value.login_with_password.assert_called_once()
+    credentials = oauth_login.return_value.login_with_password.call_args[0][0]
+    assert credentials.totp_secret is None
+
+
+def test_login_workspace_forwards_oauth_totp_secret(mocker):
+    api = AltiumApi()
+
+    api.login = mocker.Mock()
+    api.login.return_value = True
+
+    mock_soapy_con_workspace = mocker.patch("py_altium365.altium_api.SoapyConServiceDiscovery")
+    sd_login = mocker.Mock()
+    mock_soapy_con_workspace.login = sd_login
+    sd_login.return_value.user_info = True
+    api._workspace_con = mock_soapy_con_workspace
+
+    mocker.patch("py_altium365.altium_api.AltiumApiWorkspace", return_value="test_workspace")
+    oauth_login = mocker.patch("py_altium365.altium_api.AltiumIdentityOAuth")
+
+    assert (
+        api.login_workspace(
+            "test_workspace",
+            "test_user",
+            "test_pass",
+            oauth_totp_secret="JBSWY3DPEHPK3PXP",
+        )
+        == "test_workspace"
+    )
+    credentials = oauth_login.return_value.login_with_password.call_args[0][0]
+    assert credentials.totp_secret == "JBSWY3DPEHPK3PXP"
 
 
 def test_get_service_url_cache(mocker):

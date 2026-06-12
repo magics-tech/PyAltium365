@@ -37,4 +37,5 @@ jobs:
         env:
           ALTIUM_USER: ${{ secrets.ALTIUM_USER }}
           ALTIUM_PASS: ${{ secrets.ALTIUM_PASS }}
+          ALTIUM_TOTP_SECRET: ${{ secrets.ALTIUM_TOTP_SECRET }}
         run: pytest tests/integration -m integration -v

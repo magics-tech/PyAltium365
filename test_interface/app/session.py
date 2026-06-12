@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
@@ -111,7 +112,13 @@ class HarnessSession:
                 workspace_target = ws
                 break
         try:
-            workspace = self._api.login_workspace(workspace_target, username, password)  # type: ignore[union-attr]
+            totp_secret = os.environ.get("ALTIUM_TOTP_SECRET")
+            workspace = self._api.login_workspace(  # type: ignore[union-attr]
+                workspace_target,
+                username,
+                password,
+                oauth_totp_secret=totp_secret,
+            )
             if workspace is None:
                 self._last_error = "Workspace login failed"
                 self._workspace = None
