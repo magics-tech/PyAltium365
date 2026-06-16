@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import parse_qs, unquote, urljoin, urlparse
 
-from requests import Response, Session
+import httpx
 
 _AUTH_BASE = "https://auth.altium.com"
 _TOKEN_URL = f"{_AUTH_BASE}/connect/token"
@@ -60,20 +60,20 @@ def parse_workspace_home_tokens(home_html: str) -> tuple[Optional[str], Optional
 class AltiumIdentityOAuth:
     """Authenticate against auth.altium.com for workspace REST APIs."""
 
-    def __init__(self, session: Optional[Session] = None) -> None:
-        self._session = session or Session()
+    def __init__(self, client: Optional[httpx.AsyncClient] = None) -> None:
+        self._client = client or httpx.AsyncClient()
         self._apply_browser_headers()
         self._tokens: Optional[AltiumOAuthTokens] = None
 
     @property
-    def session(self) -> Session:
-        return self._session
+    def client(self) -> httpx.AsyncClient:
+        return self._client
 
     @property
     def tokens(self) -> Optional[AltiumOAuthTokens]:
         return self._tokens
 
-    def login_with_password(
+    async def login_with_password(
         self,
         credentials: AltiumOAuthCredentials,
         *,
@@ -82,15 +82,15 @@ class AltiumIdentityOAuth:
         del service_session_guid
 
         workspace_base = normalize_workspace_url(credentials.workspace_url)
-        signin_page = self._session.get(workspace_base, allow_redirects=True, timeout=30)
-        callback_return_url = self._signin_callback_return_url(signin_page.url)
+        signin_page = await self._client.get(workspace_base, follow_redirects=True, timeout=30)
+        callback_return_url = self._signin_callback_return_url(str(signin_page.url))
         if callback_return_url is None:
             raise ConnectionError(
                 "Altium OAuth did not redirect to sign-in from the workspace URL"
             )
 
-        self._prepare_sign_in_context(credentials.username, callback_return_url)
-        signin = self._json_post(
+        await self._prepare_sign_in_context(credentials.username, callback_return_url)
+        signin = await self._json_post(
             f"{_AUTH_BASE}/api/account/signIn",
             {
                 "userName": credentials.username,
@@ -101,13 +101,13 @@ class AltiumIdentityOAuth:
             },
         )
         next_url = self._resolve_post_signin_url(signin, callback_return_url)
-        next_url = self._complete_two_factor(
+        next_url = await self._complete_two_factor(
             next_url,
             credentials.totp_code,
             callback_return_url,
         )
-        self._follow_authorize_callback(next_url)
-        gsid, session_id = self._load_workspace_tokens(workspace_base)
+        await self._follow_authorize_callback(next_url)
+        gsid, session_id = await self._load_workspace_tokens(workspace_base)
         if gsid is None:
             raise ConnectionError(
                 "Altium OAuth completed but workspace access token (__gsid) was not found"
@@ -115,14 +115,14 @@ class AltiumIdentityOAuth:
         self._tokens = AltiumOAuthTokens(access_token=gsid, session_id=session_id)
         return self._tokens
 
-    def login_with_refresh_token(
+    async def login_with_refresh_token(
         self,
         *,
         client_id: str,
         client_secret: str,
         refresh_token: str,
     ) -> AltiumOAuthTokens:
-        response = self._session.post(
+        response = await self._client.post(
             _TOKEN_URL,
             data={
                 "grant_type": "refresh_token",
@@ -151,8 +151,8 @@ class AltiumIdentityOAuth:
         return self._tokens
 
     def _apply_browser_headers(self) -> None:
-        self._session.headers["User-Agent"] = _BROWSER_USER_AGENT
-        self._session.headers["Accept"] = "application/json, text/plain, */*"
+        self._client.headers["User-Agent"] = _BROWSER_USER_AGENT
+        self._client.headers["Accept"] = "application/json, text/plain, */*"
 
     def _signin_callback_return_url(self, signin_url: str) -> Optional[str]:
         if "/signin" not in signin_url:
@@ -162,13 +162,13 @@ class AltiumIdentityOAuth:
             return None
         return unquote(return_url)
 
-    def _prepare_sign_in_context(self, username: str, callback_return_url: str) -> None:
-        self._session.get(
+    async def _prepare_sign_in_context(self, username: str, callback_return_url: str) -> None:
+        await self._client.get(
             f"{_AUTH_BASE}/api/config",
             params={"returnUrl": callback_return_url},
             timeout=30,
         )
-        self._json_post(
+        await self._json_post(
             f"{_AUTH_BASE}/api/userContext/current",
             {
                 "returnUrl": callback_return_url,
@@ -176,7 +176,7 @@ class AltiumIdentityOAuth:
                 "includeMethods": None,
             },
         )
-        self._json_post(
+        await self._json_post(
             f"{_AUTH_BASE}/api/userContext/authenticationMethods",
             {
                 "userName": username,
@@ -193,44 +193,39 @@ class AltiumIdentityOAuth:
             return next_url
         return callback_return_url
 
-    def _load_workspace_tokens(self, workspace_base: str) -> tuple[Optional[str], Optional[str]]:
-        home_response = self._session.get(
+    async def _load_workspace_tokens(self, workspace_base: str) -> tuple[Optional[str], Optional[str]]:
+        home_response = await self._client.get(
             f"{workspace_base}/home",
-            allow_redirects=True,
+            follow_redirects=True,
             timeout=30,
         )
         gsid, session_id = parse_workspace_home_tokens(home_response.text)
         if gsid is not None:
             return gsid, session_id
         if self._has_workspace_context_cookie():
-            home_response = self._session.get(
+            home_response = await self._client.get(
                 f"{workspace_base}/home",
-                allow_redirects=True,
+                follow_redirects=True,
                 timeout=30,
             )
             return parse_workspace_home_tokens(home_response.text)
-        self._bootstrap_workspace_session(workspace_base)
-        home_response = self._session.get(
+        await self._bootstrap_workspace_session(workspace_base)
+        home_response = await self._client.get(
             f"{workspace_base}/home",
-            allow_redirects=True,
+            follow_redirects=True,
             timeout=30,
         )
         return parse_workspace_home_tokens(home_response.text)
 
-    def _bootstrap_workspace_session(self, workspace_base: str) -> None:
+    async def _bootstrap_workspace_session(self, workspace_base: str) -> None:
         if self._has_workspace_context_cookie():
             return
-        self._follow_redirects(f"{workspace_base}/home", max_hops=4)
+        await self._follow_redirects(f"{workspace_base}/home", max_hops=4)
 
     def _has_workspace_context_cookie(self) -> bool:
-        for cookie in self._session.cookies:
-            if cookie.name != "ALU_365_CONTEXT":
-                continue
-            if cookie.value:
-                return True
-        return False
+        return bool(self._client.cookies.get("ALU_365_CONTEXT"))
 
-    def _complete_two_factor(
+    async def _complete_two_factor(
         self,
         next_url: str,
         totp_code: Optional[str],
@@ -247,7 +242,7 @@ class AltiumIdentityOAuth:
                 "from a registered Altium app."
             )
 
-        result = self._json_post(
+        result = await self._json_post(
             f"{_AUTH_BASE}/api/2fa/challenge",
             {
                 "code": totp_code,
@@ -256,17 +251,17 @@ class AltiumIdentityOAuth:
         )
         return result.get("returnUrl", callback_return_url)
 
-    def _follow_authorize_callback(self, next_url: str) -> None:
+    async def _follow_authorize_callback(self, next_url: str) -> None:
         if not next_url:
             raise ConnectionError("Altium OAuth sign-in did not return a continuation URL")
         if next_url.startswith("/"):
             next_url = f"{_AUTH_BASE}{next_url}"
-        self._follow_redirects(next_url, max_hops=16)
+        await self._follow_redirects(next_url, max_hops=16)
 
-    def _follow_redirects(self, url: str, *, max_hops: int) -> None:
+    async def _follow_redirects(self, url: str, *, max_hops: int) -> None:
         current = url
         for _ in range(max_hops):
-            response = self._session.get(current, allow_redirects=False, timeout=30)
+            response = await self._client.get(current, follow_redirects=False, timeout=30)
             if self._context_cookie_from_response(response):
                 return
             location = response.headers.get("location")
@@ -274,13 +269,13 @@ class AltiumIdentityOAuth:
                 return
             current = urljoin(current, location)
 
-    def _context_cookie_from_response(self, response: Response) -> bool:
+    def _context_cookie_from_response(self, response: httpx.Response) -> bool:
         set_cookie = response.headers.get("set-cookie", "")
         match = _CONTEXT_COOKIE_RE.search(set_cookie)
         return bool(match and match.group(1))
 
-    def _json_post(self, url: str, payload: dict) -> dict:
-        response = self._session.post(
+    async def _json_post(self, url: str, payload: dict) -> dict:
+        response = await self._client.post(
             url,
             json=payload,
             headers={"Content-Type": _JSON_CONTENT_TYPE},
@@ -289,7 +284,7 @@ class AltiumIdentityOAuth:
         return _parse_json_response(response, url)
 
 
-def _parse_json_response(response: Response, url: str) -> dict:
+def _parse_json_response(response: httpx.Response, url: str) -> dict:
     if response.status_code != 200:
         raise ConnectionError(
             f"Altium OAuth request failed for {url} (HTTP {response.status_code}): {response.text[:300]}"

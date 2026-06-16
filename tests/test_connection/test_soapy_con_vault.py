@@ -1,5 +1,7 @@
 """Unit tests for vault SOAP client."""
 
+import pytest
+
 from py_altium365.connection.vault.soapy_con_vault import SoapConVault
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
@@ -12,33 +14,6 @@ from py_altium365.connection.vault.soapy_con_vault_base import (
 )
 
 
-def test_get_alu_folders(mocker):
-    workspace = mocker.Mock()
-    workspace.workspace_url = "https://workspace.example"
-    workspace.session_guid = "session-guid"
-    vault = SoapConVault(workspace)
-    folder = AluFolder(guid="f1", hrid="Folder")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[folder]))
-
-    folders = vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='f1'")
-
-    assert folders == [folder]
-    vault._send_command.assert_called_once()
-
-
-def test_get_alu_items(mocker):
-    workspace = mocker.Mock()
-    workspace.workspace_url = "https://workspace.example"
-    workspace.session_guid = "session-guid"
-    vault = SoapConVault(workspace)
-    item = AluItem(guid="i1", hrid="Item")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[item]))
-
-    items = vault.get_alu_items(p_filter="FolderGUID='f1'")
-
-    assert items == [item]
-
-
 def _make_vault(mocker):
     workspace = mocker.Mock()
     workspace.workspace_url = "https://workspace.example"
@@ -46,67 +21,96 @@ def _make_vault(mocker):
     return SoapConVault(workspace)
 
 
-def test_get_alu_life_cycle_states(mocker):
+@pytest.mark.anyio
+async def test_get_alu_folders(mocker):
+    vault = _make_vault(mocker)
+    folder = AluFolder(guid="f1", hrid="Folder")
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[folder])))
+
+    folders = await vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='f1'")
+
+    assert folders == [folder]
+    vault._send_command.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_get_alu_items(mocker):
+    vault = _make_vault(mocker)
+    item = AluItem(guid="i1", hrid="Item")
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[item])))
+
+    items = await vault.get_alu_items(p_filter="FolderGUID='f1'")
+
+    assert items == [item]
+
+
+@pytest.mark.anyio
+async def test_get_alu_life_cycle_states(mocker):
     vault = _make_vault(mocker)
     state = AluLifeCycleState(guid="lcs-1")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[state]))
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[state])))
 
-    result = vault.get_alu_life_cycle_states()
+    result = await vault.get_alu_life_cycle_states()
 
     assert result == [state]
     vault._send_command.assert_called_once()
 
 
-def test_get_alu_life_cycle_states_with_filter(mocker):
+@pytest.mark.anyio
+async def test_get_alu_life_cycle_states_with_filter(mocker):
     vault = _make_vault(mocker)
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[]))
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[])))
 
-    vault.get_alu_life_cycle_states(p_filter="GUID='lcs-1'")
+    await vault.get_alu_life_cycle_states(p_filter="GUID='lcs-1'")
 
     call_args = vault._send_command.call_args
     assert call_args.kwargs["method"].p_filter == "GUID='lcs-1'"
 
 
-def test_get_alu_life_cycle_definitions(mocker):
+@pytest.mark.anyio
+async def test_get_alu_life_cycle_definitions(mocker):
     vault = _make_vault(mocker)
     definition = AluLifeCycleDefinition(guid="lcd-1")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[definition]))
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[definition])))
 
-    result = vault.get_alu_life_cycle_definitions()
+    result = await vault.get_alu_life_cycle_definitions()
 
     assert result == [definition]
     vault._send_command.assert_called_once()
 
 
-def test_get_alu_life_cycle_state_changes(mocker):
+@pytest.mark.anyio
+async def test_get_alu_life_cycle_state_changes(mocker):
     vault = _make_vault(mocker)
     change = AluLifeCycleStateChange(guid="lcsc-1", item_revision_guid="rev-1")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[change]))
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[change])))
 
-    result = vault.get_alu_life_cycle_state_changes(p_filter="ItemRevisionGUID = 'rev-1'")
+    result = await vault.get_alu_life_cycle_state_changes(p_filter="ItemRevisionGUID = 'rev-1'")
 
     assert result == [change]
     call_args = vault._send_command.call_args
     assert call_args.kwargs["method"].p_filter == "ItemRevisionGUID = 'rev-1'"
 
 
-def test_get_alu_life_cycle_state_transitions(mocker):
+@pytest.mark.anyio
+async def test_get_alu_life_cycle_state_transitions(mocker):
     vault = _make_vault(mocker)
     transition = AluLifeCycleStateTransition(guid="lcst-1", life_cycle_state_before_guid="state-before")
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock(records=[transition]))
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock(records=[transition])))
 
-    result = vault.get_alu_life_cycle_state_transitions(p_filter="LifeCycleStateBeforeGUID = 'state-before'")
+    result = await vault.get_alu_life_cycle_state_transitions(p_filter="LifeCycleStateBeforeGUID = 'state-before'")
 
     assert result == [transition]
     call_args = vault._send_command.call_args
     assert call_args.kwargs["method"].p_filter == "LifeCycleStateBeforeGUID = 'state-before'"
 
 
-def test_add_alu_life_cycle_state_changes(mocker):
+@pytest.mark.anyio
+async def test_add_alu_life_cycle_state_changes(mocker):
     vault = _make_vault(mocker)
-    mocker.patch.object(vault, "_send_command", return_value=mocker.Mock())
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock(return_value=mocker.Mock()))
 
-    result = vault.add_alu_life_cycle_state_changes(
+    result = await vault.add_alu_life_cycle_state_changes(
         item_revision_guids=["rev-1"],
         life_cycle_state_transition_guids=["trans-1"],
         life_cycle_state_after_guids=["state-after-1"],
@@ -122,11 +126,12 @@ def test_add_alu_life_cycle_state_changes(mocker):
     assert records[0].life_cycle_state_after_guid == "state-after-1"
 
 
-def test_add_alu_life_cycle_state_changes_length_mismatch(mocker):
+@pytest.mark.anyio
+async def test_add_alu_life_cycle_state_changes_length_mismatch(mocker):
     vault = _make_vault(mocker)
-    mocker.patch.object(vault, "_send_command")
+    mocker.patch.object(vault, "_send_command", new=mocker.AsyncMock())
 
-    result = vault.add_alu_life_cycle_state_changes(
+    result = await vault.add_alu_life_cycle_state_changes(
         item_revision_guids=["rev-1", "rev-2"],
         life_cycle_state_transition_guids=["trans-1"],
         life_cycle_state_after_guids=["state-after-1"],

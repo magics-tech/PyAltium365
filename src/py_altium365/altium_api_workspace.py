@@ -92,16 +92,16 @@ class AltiumApiWorkspace:
         """
         return f"{self._normalized_workspace_base()}{_DEFAULT_COMPONENTS_API_PATH}"
 
-    def get_item_from_guid(self, guid: str) -> Optional[AluItem]:
+    async def get_item_from_guid(self, guid: str) -> Optional[AluItem]:
         """
         Get an item from the vault using its GUID
         :param guid: The GUID of the item to retrieve
         :return: A list of AluItem objects matching the GUID
         """
-        items = self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
+        items = await self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
         return items[0] if len(items) > 0 else None
 
-    def get_items_in_folder(self, folder: AluFolder) -> list[AluItem]:
+    async def get_items_in_folder(self, folder: AluFolder) -> list[AluItem]:
         """
         Get all items in a specific folder
         :param folder: An AluFolder object representing the folder to retrieve items from
@@ -109,25 +109,25 @@ class AltiumApiWorkspace:
         """
         if folder.guid is None:
             return []
-        return self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="FolderGUID='" + folder.guid + "'")
+        return await self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="FolderGUID='" + folder.guid + "'")
 
-    def get_all_folders(self) -> list[AluFolder]:
+    async def get_all_folders(self) -> list[AluFolder]:
         """
         Get all folders in the vault
         :return: A list of AluFolder objects representing the folders
         """
-        return self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS])
+        return await self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS])
 
-    def get_folder_from_guid(self, guid: str) -> Optional[AluFolder]:
+    async def get_folder_from_guid(self, guid: str) -> Optional[AluFolder]:
         """
         Get a folder from the vault using its GUID
         :param guid: The GUID of the folder to retrieve
         :return: An AluFolder object matching the GUID, or None if not found
         """
-        folders = self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
+        folders = await self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
         return folders[0] if len(folders) > 0 else None
 
-    def get_folders_in_folder(self, folder: AluFolder) -> list[AluFolder]:
+    async def get_folders_in_folder(self, folder: AluFolder) -> list[AluFolder]:
         """
         Get all folders in a specific folder
         :param folder: An AluFolder object representing the folder to retrieve subfolders from
@@ -135,9 +135,9 @@ class AltiumApiWorkspace:
         """
         if folder.guid is None:
             return []
-        return self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="ParentFolderGUID='" + folder.guid + "'")
+        return await self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="ParentFolderGUID='" + folder.guid + "'")
 
-    def get_possible_life_cycle_state_transitions(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateTransition]:
+    async def get_possible_life_cycle_state_transitions(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateTransition]:
         """
         Get possible life cycle state transitions for an item revision.
         :param item_revision: The AluItemRevision to get transitions for.
@@ -145,11 +145,11 @@ class AltiumApiWorkspace:
         """
         if item_revision.lifecycle_state_guid is None:
             return []
-        return self._vault.get_alu_life_cycle_state_transitions(
+        return await self._vault.get_alu_life_cycle_state_transitions(
             p_filter=f"LifeCycleStateBeforeGUID = '{item_revision.lifecycle_state_guid}'"
         )
 
-    def change_life_cycle_state(
+    async def change_life_cycle_state(
         self,
         item_revision_list: list[AluItemRevision],
         life_cycle_transition_list: list[AluLifeCycleStateTransition],
@@ -162,13 +162,13 @@ class AltiumApiWorkspace:
         """
         if len(item_revision_list) != len(life_cycle_transition_list):
             return False
-        return self._vault.add_alu_life_cycle_state_changes(
+        return await self._vault.add_alu_life_cycle_state_changes(
             item_revision_guids=[r.guid for r in item_revision_list],
             life_cycle_state_transition_guids=[t.guid for t in life_cycle_transition_list],
             life_cycle_state_after_guids=[t.life_cycle_state_after_guid for t in life_cycle_transition_list],
         )
 
-    def get_life_cycle_state_changes_from_item_revision(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateChange]:
+    async def get_life_cycle_state_changes_from_item_revision(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateChange]:
         """
         Get all life cycle state changes recorded for an item revision.
         :param item_revision: The AluItemRevision to get state changes for.
@@ -176,22 +176,22 @@ class AltiumApiWorkspace:
         """
         if item_revision.guid is None:
             return []
-        return self._vault.get_alu_life_cycle_state_changes(
+        return await self._vault.get_alu_life_cycle_state_changes(
             p_filter=f"ItemRevisionGUID = '{item_revision.guid}'"
         )
 
-    def get_life_cycle_states(self, p_filter: Optional[str] = None) -> list[AluLifeCycleState]:
+    async def get_life_cycle_states(self, p_filter: Optional[str] = None) -> list[AluLifeCycleState]:
         """
         Get life cycle states from the vault.
         :param p_filter: Optional filter string.
         :return: A list of AluLifeCycleState objects.
         """
-        return self._vault.get_alu_life_cycle_states(p_filter=p_filter)
+        return await self._vault.get_alu_life_cycle_states(p_filter=p_filter)
 
-    def get_life_cycle_definitions(self, p_filter: Optional[str] = None) -> list[AluLifeCycleDefinition]:
+    async def get_life_cycle_definitions(self, p_filter: Optional[str] = None) -> list[AluLifeCycleDefinition]:
         """
         Get life cycle definitions from the vault.
         :param p_filter: Optional filter string.
         :return: A list of AluLifeCycleDefinition objects.
         """
-        return self._vault.get_alu_life_cycle_definitions(p_filter=p_filter)
+        return await self._vault.get_alu_life_cycle_definitions(p_filter=p_filter)

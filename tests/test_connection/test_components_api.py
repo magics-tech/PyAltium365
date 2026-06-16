@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 
+import httpx
 import pytest
 
 from py_altium365.base.field_encoding import COMPONENTS_API_FIELD_SUFFIX
@@ -17,21 +18,15 @@ from py_altium365.connection.components.components_api import (
 
 
 def _json_response(payload, status_code=200):
-    from requests import Response
-
-    response = Response()
-    response.status_code = status_code
-    response._content = json.dumps(payload).encode("utf-8")  # type: ignore[attr-defined]
-    response.encoding = "utf-8"
-    return response
-
-
-def _make_client(mock_requests_session, mocker, base_url="https://ws.example/components/api/components"):
-    return ComponentsApiClient(
-        mock_requests_session,
-        base_url,
-        "session-guid-123",
+    return httpx.Response(
+        status_code=status_code,
+        content=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json"},
     )
+
+
+def _make_client(mock_client, base_url="https://ws.example/components/api/components"):
+    return ComponentsApiClient(mock_client, base_url, "session-guid-123")
 
 
 def test_components_query_to_params():
@@ -52,14 +47,16 @@ def test_components_query_to_params():
     assert params["orderby[]"] == [f"-Update_20Date{COMPONENTS_API_FIELD_SUFFIX}"]
 
 
-def test_list_page_builds_request(mock_requests_session, components_list_response, mocker):
-    mock_requests_session.get.return_value = _json_response(components_list_response)
-    client = _make_client(mock_requests_session, mocker)
+@pytest.mark.anyio
+async def test_list_page_builds_request(components_list_response, mocker):
+    mock_client = mocker.AsyncMock()
+    mock_client.get = mocker.AsyncMock(return_value=_json_response(components_list_response))
+    client = _make_client(mock_client)
 
-    page = client.list_page(limit=50)
+    page = await client.list_page(limit=50)
 
-    mock_requests_session.get.assert_called_once()
-    call_kwargs = mock_requests_session.get.call_args.kwargs
+    mock_client.get.assert_called_once()
+    call_kwargs = mock_client.get.call_args.kwargs
     assert call_kwargs["headers"]["Authorization"] == "AFSSessionID session-guid-123"
     assert call_kwargs["headers"]["User-Agent"] == "Altium Designer"
     assert "host" not in call_kwargs["headers"]
@@ -80,17 +77,22 @@ def test_parse_fixture_into_component_record(components_list_response):
     assert record.revision_state == "Draft"
 
 
-def test_find_by_hrid(mock_requests_session, components_list_response, mocker):
-    mock_requests_session.get.return_value = _json_response(components_list_response)
-    client = _make_client(mock_requests_session, mocker)
+@pytest.mark.anyio
+async def test_find_by_hrid(components_list_response, mocker):
+    mock_client = mocker.AsyncMock()
+    mock_client.get = mocker.AsyncMock(return_value=_json_response(components_list_response))
+    client = _make_client(mock_client)
 
-    found = client.find_by_hrid("CMP-002")
+    found = await client.find_by_hrid("CMP-002")
     assert found is not None
     assert found.hrid == "CMP-002"
-    assert client.find_by_hrid("MISSING") is None
+
+    mock_client.get.return_value = _json_response(components_list_response)
+    assert await client.find_by_hrid("MISSING") is None
 
 
-def test_list_recent_stops_at_watermark(mock_requests_session, mocker):
+@pytest.mark.anyio
+async def test_list_recent_stops_at_watermark(mocker):
     payload = {
         "Total": 2,
         "Items": [
@@ -114,11 +116,12 @@ def test_list_recent_stops_at_watermark(mock_requests_session, mocker):
             },
         ],
     }
-    mock_requests_session.get.return_value = _json_response(payload)
-    client = _make_client(mock_requests_session, mocker)
+    mock_client = mocker.AsyncMock()
+    mock_client.get = mocker.AsyncMock(return_value=_json_response(payload))
+    client = _make_client(mock_client)
 
     since = datetime(2026, 6, 1, 12, 0, 0)
-    results = client.list_recent(since)
+    results = await client.list_recent(since)
 
     assert len(results) == 1
     assert results[0].hrid == "CMP-RECENT"

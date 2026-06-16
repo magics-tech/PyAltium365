@@ -75,80 +75,88 @@ def test_create_search_object_no_search_base_url(mocker):
         api.create_search_object()
 
 
-def test_get_all_folders_delegates_to_vault(mocker):
+@pytest.mark.anyio
+async def test_get_all_folders_delegates_to_vault(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
-    api._vault.get_alu_folders = mocker.Mock(return_value=[folder])
+    api._vault.get_alu_folders = mocker.AsyncMock(return_value=[folder])
 
-    result = api.get_all_folders()
+    result = await api.get_all_folders()
 
     assert result == [folder]
     api._vault.get_alu_folders.assert_called_once()
 
 
-def test_get_items_in_folder(mocker):
+@pytest.mark.anyio
+async def test_get_items_in_folder(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
     folder.guid = "folder-guid"
     item = mocker.Mock()
-    api._vault.get_alu_items = mocker.Mock(return_value=[item])
+    api._vault.get_alu_items = mocker.AsyncMock(return_value=[item])
 
-    result = api.get_items_in_folder(folder)
+    result = await api.get_items_in_folder(folder)
 
     assert result == [item]
     api._vault.get_alu_items.assert_called_once()
 
 
-def test_get_items_in_folder_no_guid(mocker):
+@pytest.mark.anyio
+async def test_get_items_in_folder_no_guid(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
     folder.guid = None
 
-    assert api.get_items_in_folder(folder) == []
+    assert await api.get_items_in_folder(folder) == []
 
 
-def test_get_item_from_guid(mocker):
+@pytest.mark.anyio
+async def test_get_item_from_guid(mocker):
     api, _ = create_workspace_api(mocker)
     item = mocker.Mock()
-    api._vault.get_alu_items = mocker.Mock(return_value=[item])
+    api._vault.get_alu_items = mocker.AsyncMock(return_value=[item])
 
-    result = api.get_item_from_guid("item-guid")
+    result = await api.get_item_from_guid("item-guid")
 
     assert result is item
 
 
-def test_get_item_from_guid_missing(mocker):
+@pytest.mark.anyio
+async def test_get_item_from_guid_missing(mocker):
     api, _ = create_workspace_api(mocker)
-    api._vault.get_alu_items = mocker.Mock(return_value=[])
+    api._vault.get_alu_items = mocker.AsyncMock(return_value=[])
 
-    assert api.get_item_from_guid("missing") is None
+    assert await api.get_item_from_guid("missing") is None
 
 
-def test_get_folder_from_guid(mocker):
+@pytest.mark.anyio
+async def test_get_folder_from_guid(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
-    api._vault.get_alu_folders = mocker.Mock(return_value=[folder])
+    api._vault.get_alu_folders = mocker.AsyncMock(return_value=[folder])
 
-    assert api.get_folder_from_guid("folder-guid") is folder
+    assert await api.get_folder_from_guid("folder-guid") is folder
 
 
-def test_get_folders_in_folder(mocker):
+@pytest.mark.anyio
+async def test_get_folders_in_folder(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
     folder.guid = "parent-guid"
     child = mocker.Mock()
-    api._vault.get_alu_folders = mocker.Mock(return_value=[child])
+    api._vault.get_alu_folders = mocker.AsyncMock(return_value=[child])
 
-    assert api.get_folders_in_folder(folder) == [child]
+    assert await api.get_folders_in_folder(folder) == [child]
 
 
-def test_get_possible_life_cycle_state_transitions(mocker):
+@pytest.mark.anyio
+async def test_get_possible_life_cycle_state_transitions(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid="rev-1", lifecycle_state_guid="state-guid-1")
     transition = AluLifeCycleStateTransition(guid="trans-1", life_cycle_state_before_guid="state-guid-1")
-    api._vault.get_alu_life_cycle_state_transitions = mocker.Mock(return_value=[transition])
+    api._vault.get_alu_life_cycle_state_transitions = mocker.AsyncMock(return_value=[transition])
 
-    result = api.get_possible_life_cycle_state_transitions(revision)
+    result = await api.get_possible_life_cycle_state_transitions(revision)
 
     assert result == [transition]
     api._vault.get_alu_life_cycle_state_transitions.assert_called_once_with(
@@ -156,24 +164,26 @@ def test_get_possible_life_cycle_state_transitions(mocker):
     )
 
 
-def test_get_possible_life_cycle_state_transitions_no_guid(mocker):
+@pytest.mark.anyio
+async def test_get_possible_life_cycle_state_transitions_no_guid(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid="rev-1", lifecycle_state_guid=None)
-    api._vault.get_alu_life_cycle_state_transitions = mocker.Mock()
+    api._vault.get_alu_life_cycle_state_transitions = mocker.AsyncMock()
 
-    result = api.get_possible_life_cycle_state_transitions(revision)
+    result = await api.get_possible_life_cycle_state_transitions(revision)
 
     assert result == []
     api._vault.get_alu_life_cycle_state_transitions.assert_not_called()
 
 
-def test_change_life_cycle_state(mocker):
+@pytest.mark.anyio
+async def test_change_life_cycle_state(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid="rev-1", lifecycle_state_guid="state-before")
     transition = AluLifeCycleStateTransition(guid="trans-1", life_cycle_state_after_guid="state-after-1")
-    api._vault.add_alu_life_cycle_state_changes = mocker.Mock(return_value=True)
+    api._vault.add_alu_life_cycle_state_changes = mocker.AsyncMock(return_value=True)
 
-    result = api.change_life_cycle_state([revision], [transition])
+    result = await api.change_life_cycle_state([revision], [transition])
 
     assert result is True
     api._vault.add_alu_life_cycle_state_changes.assert_called_once_with(
@@ -183,24 +193,26 @@ def test_change_life_cycle_state(mocker):
     )
 
 
-def test_change_life_cycle_state_length_mismatch(mocker):
+@pytest.mark.anyio
+async def test_change_life_cycle_state_length_mismatch(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid="rev-1")
-    api._vault.add_alu_life_cycle_state_changes = mocker.Mock()
+    api._vault.add_alu_life_cycle_state_changes = mocker.AsyncMock()
 
-    result = api.change_life_cycle_state([revision], [])
+    result = await api.change_life_cycle_state([revision], [])
 
     assert result is False
     api._vault.add_alu_life_cycle_state_changes.assert_not_called()
 
 
-def test_get_life_cycle_state_changes_from_item_revision(mocker):
+@pytest.mark.anyio
+async def test_get_life_cycle_state_changes_from_item_revision(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid="rev-1")
     change = AluLifeCycleStateChange(guid="change-1", item_revision_guid="rev-1")
-    api._vault.get_alu_life_cycle_state_changes = mocker.Mock(return_value=[change])
+    api._vault.get_alu_life_cycle_state_changes = mocker.AsyncMock(return_value=[change])
 
-    result = api.get_life_cycle_state_changes_from_item_revision(revision)
+    result = await api.get_life_cycle_state_changes_from_item_revision(revision)
 
     assert result == [change]
     api._vault.get_alu_life_cycle_state_changes.assert_called_once_with(
@@ -208,12 +220,13 @@ def test_get_life_cycle_state_changes_from_item_revision(mocker):
     )
 
 
-def test_get_life_cycle_state_changes_from_item_revision_no_guid(mocker):
+@pytest.mark.anyio
+async def test_get_life_cycle_state_changes_from_item_revision_no_guid(mocker):
     api, _ = create_workspace_api(mocker)
     revision = AluItemRevision(guid=None)
-    api._vault.get_alu_life_cycle_state_changes = mocker.Mock()
+    api._vault.get_alu_life_cycle_state_changes = mocker.AsyncMock()
 
-    result = api.get_life_cycle_state_changes_from_item_revision(revision)
+    result = await api.get_life_cycle_state_changes_from_item_revision(revision)
 
     assert result == []
     api._vault.get_alu_life_cycle_state_changes.assert_not_called()

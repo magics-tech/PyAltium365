@@ -143,14 +143,14 @@ class SoapyConPortal(SoapyCon):
         super().__init__(ConnectionHandler.get_instance(), "https://portal365.altium.com/?cls=soap")
         self._altium_api = altium_api
 
-    def login_user(self, username: str, password: str) -> SoapLoginResult:
+    async def login_user(self, username: str, password: str) -> SoapLoginResult:
         """
         Login a user to the Altium portal.
         :param username: The altium username.
         :param password: The altium password.
         :return: The user login result.
         """
-        response = self._send_command(
+        response = await self._send_command(
             SoapHeaderApi(),
             SoapMethodLogin(username=username, password=password),
             return_method=SoapLoginResponse,
@@ -158,7 +158,7 @@ class SoapyConPortal(SoapyCon):
 
         return response.login_result
 
-    def get_prt_global_service_url(self, service: PrtGlobalService, handle: Optional[str] = None) -> Optional[str]:
+    async def get_prt_global_service_url(self, service: PrtGlobalService, handle: Optional[str] = None) -> Optional[str]:
         """
         Get a PRT global service URL.
         :param service: The PRT global service to get the URL for.
@@ -170,7 +170,7 @@ class SoapyConPortal(SoapyCon):
         if not service.is_guid_req:
             handle = None
 
-        response = self._send_command(
+        response = await self._send_command(
             SoapHeaderApi(),
             SoapMethodGetPrtGlobalServiceUrl(
                 handle=handle,

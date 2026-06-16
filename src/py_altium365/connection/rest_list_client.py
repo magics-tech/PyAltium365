@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar
+from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel
 
@@ -57,17 +57,17 @@ class RestListClient(RestCon, ABC, Generic[PageT, RecordT]):
     def _page_items(self, page: PageT) -> List[RecordT]:
         raise NotImplementedError
 
-    def list_page(self, query: RestListQuery) -> PageT:
-        response = self._get(params=query.to_params(field_suffix=self.field_suffix))
+    async def list_page(self, query: RestListQuery) -> PageT:
+        response = await self._get(params=query.to_params(field_suffix=self.field_suffix))
         return self._parse_page(response.json())
 
-    def iter_pages(
+    async def iter_pages(
         self,
         query: RestListQuery,
         *,
         page_size: int = 50,
         max_items: Optional[int] = None,
-    ) -> Iterator[RecordT]:
+    ) -> AsyncIterator[RecordT]:
         start = query.start
         fetched = 0
 
@@ -80,7 +80,7 @@ class RestListClient(RestCon, ABC, Generic[PageT, RecordT]):
                 limit = min(page_size, max_items - fetched)
 
             page_query = query.model_copy(update={"start": start, "limit": limit})
-            page = self.list_page(page_query)
+            page = await self.list_page(page_query)
             items = self._page_items(page)
             if not items:
                 return

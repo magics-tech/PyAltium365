@@ -4,7 +4,6 @@ from typing import List, Optional
 from pydantic_xml import BaseXmlModel, element
 
 from py_altium365.base.connection_handler import ConnectionHandler
-from py_altium365.base.enums import PrtGlobalService
 from py_altium365.connection.soapy_con import (
     SoapHeader,
     SoapMethod,
@@ -102,24 +101,22 @@ class SoapyConWorkspace(SoapyCon):
     SOAP connection to the Altium workspace.
     """
 
-    def __init__(self, altium_api):
+    def __init__(self, workspace_url: str, altium_api):
         """
         Initialize the SOAP connection to the Altium portal.
+        :param workspace_url: The pre-resolved workspace URL.
         :param altium_api: The Altium API object.
         """
-        workspace_url = altium_api.get_service_url(PrtGlobalService.WORKSPACE)
-        if workspace_url is None:
-            raise ConnectionError("Failed to get workspace URL")
         super().__init__(ConnectionHandler.get_instance(), workspace_url)
         self._altium_api = altium_api
 
-    def get_user_workspaces(self, session_guid: str):
+    async def get_user_workspaces(self, session_guid: str):
         """
         Get the user workspaces
         :param session_guid: The session GUID
         :return: The user workspaces
         """
-        response = self._send_command(
+        response = await self._send_command(
             SoapHeaderCredentials(user_credentials=SoapUserCredentials(password=session_guid)),
             SoapMethodGetUserWorkspaces(),
             return_method=SoapGetUserWorkspacesResponse,

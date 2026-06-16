@@ -1,5 +1,7 @@
 """Unit tests for service discovery SOAP client."""
 
+import pytest
+
 from py_altium365.connection.soapy_con_service_discovery import (
     ServiceEndpoints,
     SoapEndPointInfo,
@@ -10,7 +12,8 @@ from py_altium365.connection.soapy_con_service_discovery import (
 )
 
 
-def test_service_discovery_login_populates_endpoints(mocker):
+@pytest.mark.anyio
+async def test_service_discovery_login_populates_endpoints(mocker):
     discovery = SoapyConServiceDiscovery("https://workspace.example")
     user_info = SoapServiceDiscoveryLoginUserInfoResult(
         session_id="sess",
@@ -31,21 +34,22 @@ def test_service_discovery_login_populates_endpoints(mocker):
         user_info=user_info,
     )
     response = SoapServiceDiscoveryResponse(login_result=login_result)
-    mocker.patch.object(discovery, "_send_command", return_value=response)
+    mocker.patch.object(discovery, "_send_command", new=mocker.AsyncMock(return_value=response))
 
-    assert discovery.login("user", "pass") is True
+    assert await discovery.login("user", "pass") is True
     assert discovery.user_info.session_id == "sess"
     assert discovery.service_urls.SEARCHBASE == "https://search"
     assert discovery.service_urls.VAULT == "https://vault"
 
 
-def test_service_discovery_login_failure(mocker):
+@pytest.mark.anyio
+async def test_service_discovery_login_failure(mocker):
     discovery = SoapyConServiceDiscovery("https://workspace.example")
     response = mocker.Mock()
     response.login_result = None
-    mocker.patch.object(discovery, "_send_command", return_value=response)
+    mocker.patch.object(discovery, "_send_command", new=mocker.AsyncMock(return_value=response))
 
-    assert discovery.login("user", "pass") is False
+    assert await discovery.login("user", "pass") is False
     assert discovery.user_info is None
 
 

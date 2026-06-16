@@ -220,7 +220,7 @@ class SoapResponseVaultAddAluLifeCycleStateChanges(
 class SoapConVault(SoapConVaultBase):
     """SOAP connection class for Altium Vault operations."""
 
-    def get_alu_items(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluItem]:
+    async def get_alu_items(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluItem]:
         """
         Get ALU items from the vault.
         :param p_filter: Optional filter string to apply to the query.
@@ -229,66 +229,66 @@ class SoapConVault(SoapConVaultBase):
         """
         if options is None:
             options = []
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluItems(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
             return_method=SoapResponseVaultGetAluItems,
         )
         return response.records
 
-    def get_alu_life_cycle_states(self, p_filter: Optional[str] = None) -> List[AluLifeCycleState]:
+    async def get_alu_life_cycle_states(self, p_filter: Optional[str] = None) -> List[AluLifeCycleState]:
         """
         Get ALU life cycle states from the vault.
         :param p_filter: Optional filter string to apply to the query.
         :return: A list of AluLifeCycleState objects.
         """
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluLifeCycleStates(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
             return_method=SoapResponseVaultGetAluLifeCycleStates,
         )
         return response.records
 
-    def get_alu_life_cycle_definitions(self, p_filter: Optional[str] = None) -> List[AluLifeCycleDefinition]:
+    async def get_alu_life_cycle_definitions(self, p_filter: Optional[str] = None) -> List[AluLifeCycleDefinition]:
         """
         Get ALU life cycle definitions from the vault.
         :param p_filter: Optional filter string to apply to the query.
         :return: A list of AluLifeCycleDefinition objects.
         """
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluLifeCycleDefinitions(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
             return_method=SoapResponseVaultGetAluLifeCycleDefinitions,
         )
         return response.records
 
-    def get_alu_life_cycle_state_changes(self, p_filter: Optional[str] = None) -> List[AluLifeCycleStateChange]:
+    async def get_alu_life_cycle_state_changes(self, p_filter: Optional[str] = None) -> List[AluLifeCycleStateChange]:
         """
         Get ALU life cycle state changes from the vault.
         :param p_filter: Optional filter string to apply to the query.
         :return: A list of AluLifeCycleStateChange objects.
         """
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluLifeCycleStateChanges(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
             return_method=SoapResponseVaultGetAluLifeCycleStateChanges,
         )
         return response.records
 
-    def get_alu_life_cycle_state_transitions(self, p_filter: Optional[str] = None) -> List[AluLifeCycleStateTransition]:
+    async def get_alu_life_cycle_state_transitions(self, p_filter: Optional[str] = None) -> List[AluLifeCycleStateTransition]:
         """
         Get ALU life cycle state transitions from the vault.
         :param p_filter: Optional filter string to apply to the query.
         :return: A list of AluLifeCycleStateTransition objects.
         """
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluLifeCycleStateTransitions(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
             return_method=SoapResponseVaultGetAluLifeCycleStateTransitions,
         )
         return response.records
 
-    def add_alu_life_cycle_state_changes(
+    async def add_alu_life_cycle_state_changes(
         self,
         item_revision_guids: List[str],
         life_cycle_state_transition_guids: List[str],
@@ -311,7 +311,7 @@ class SoapConVault(SoapConVaultBase):
             )
             for i in range(len(item_revision_guids))
         ]
-        self._send_command(
+        await self._send_command(
             header=None,
             method=SoapMethodVaultAddAluLifeCycleStateChanges(
                 records=records,
@@ -321,7 +321,7 @@ class SoapConVault(SoapConVaultBase):
         )
         return True
 
-    def get_alu_folders(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluFolder]:
+    async def get_alu_folders(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluFolder]:
         """
         Get ALU folders from the vault.
         :param p_filter: Optional filter string to apply to the query.
@@ -330,7 +330,7 @@ class SoapConVault(SoapConVaultBase):
         """
         if options is None:
             options = []
-        response = self._send_command(
+        response = await self._send_command(
             header=None,
             method=SoapMethodVaultGetAluFolders(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
             return_method=SoapResponseVaultGetAluFolders,

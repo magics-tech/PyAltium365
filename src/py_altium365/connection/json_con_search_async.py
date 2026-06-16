@@ -202,13 +202,10 @@ class SearchDataBase(BaseModel):
     update_date: datetime = Field(alias="Update Date", default=datetime(1899, 12, 31))
     content_type: str = Field(alias="ContentType", default="")
 
-    def get_item(self) -> Optional[str]:
-        """
-        Get the item from the Altium workspace using the item GUID.
-        :return:
-        """
+    async def get_item(self):
+        """Get the AluItem from the Altium workspace using the item GUID."""
         if hasattr(self.altium_workspace, "get_item_from_guid"):
-            return self.altium_workspace.get_item_from_guid(self.item_guid)
+            return await self.altium_workspace.get_item_from_guid(self.item_guid)
         return None
 
 
@@ -255,9 +252,7 @@ class JsonConSearchAsync(JsonCon):
         self._sort_fields: List[JsonDtoSortSearchField] = []
         self._total_hits: int = 0
 
-        self._update_search_names_and_counters()
-
-    def add_search_parameter(self, name: str, value: Union[str, List[str]], dtype: FacedType = FacedType.NO_TYPE, remove_old: bool = False) -> bool:
+    async def add_search_parameter(self, name: str, value: Union[str, List[str]], dtype: FacedType = FacedType.NO_TYPE, remove_old: bool = False) -> bool:
         """
         Add a search parameter
         :param name:
@@ -266,7 +261,7 @@ class JsonConSearchAsync(JsonCon):
         :param remove_old:
         :return:
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         if isinstance(value, str):
             value = [value]
         counter: Optional[JsonFacetedCounter] = None
@@ -280,7 +275,7 @@ class JsonConSearchAsync(JsonCon):
         s_param: Optional[JsonDtoSearchConditionBooleanQueryItem] = self._get_search_parameter(full_name)
         old_values: list[str] = []
         if s_param is not None and not remove_old:
-            old_values = self.get_search_parameter(name, dtype)
+            old_values = self.get_search_parameter(name, dtype)  # sync - no HTTP
 
         for v in old_values:
             if v not in value:
@@ -308,7 +303,7 @@ class JsonConSearchAsync(JsonCon):
         self._counters_up_to_date = False
         return True
 
-    def remove_search_parameter(self, name: str, value: Union[str, List[str], None] = None, dtype: FacedType = FacedType.NO_TYPE) -> bool:
+    async def remove_search_parameter(self, name: str, value: Union[str, List[str], None] = None, dtype: FacedType = FacedType.NO_TYPE) -> bool:
         """
         Remove a search parameter
         :param name: The name of the search parameter
@@ -324,7 +319,7 @@ class JsonConSearchAsync(JsonCon):
             for v in value:
                 if v in old_values:
                     old_values.remove(v)
-        self.add_search_parameter(name, old_values, dtype, remove_old=True)
+        await self.add_search_parameter(name, old_values, dtype, remove_old=True)
         self._counters_up_to_date = False
         return True
 
@@ -400,7 +395,7 @@ class JsonConSearchAsync(JsonCon):
                     return search_param
         return None
 
-    def add_content_search_parameter(self, value: Union[SearchDataType, List[SearchDataType]], remove_old: bool = False) -> bool:
+    async def add_content_search_parameter(self, value: Union[SearchDataType, List[SearchDataType]], remove_old: bool = False) -> bool:
         """
         Add a content search parameter
         :param value: The content search parameter or a list of content search parameters
@@ -409,21 +404,21 @@ class JsonConSearchAsync(JsonCon):
         """
         if not isinstance(value, List):
             value = [value]
-        return self.add_search_parameter("ContentType", [v.value for v in value], FacedType.NO_TYPE, remove_old)
+        return await self.add_search_parameter("ContentType", [v.value for v in value], FacedType.NO_TYPE, remove_old)
 
-    def remove_content_search_parameter(self, value: Union[SearchDataType, List[SearchDataType], None]) -> bool:
+    async def remove_content_search_parameter(self, value: Union[SearchDataType, List[SearchDataType], None]) -> bool:
         """
         Remove a content search parameter
         :param value: The content search parameter or a list of content search parameters to remove, if None all content search parameters are removed
         :return: If the search parameter was removed successfully
         """
         if value is None:
-            return self.remove_search_parameter("ContentType", None, FacedType.NO_TYPE)
+            return await self.remove_search_parameter("ContentType", None, FacedType.NO_TYPE)
         if not isinstance(value, List):
             value = [value]
-        return self.remove_search_parameter("ContentType", [v.value for v in value], FacedType.NO_TYPE)
+        return await self.remove_search_parameter("ContentType", [v.value for v in value], FacedType.NO_TYPE)
 
-    def add_search_parameter_range(
+    async def add_search_parameter_range(
         self, name: str, min_value: float, max_value: float, min_inclusive: bool = True, max_inclusive: bool = True, dtype: FacedType = FacedType.NO_TYPE
     ) -> bool:
         """
@@ -445,7 +440,7 @@ class JsonConSearchAsync(JsonCon):
             return False
         if not counter.support_range:
             return False
-        self.remove_search_parameter_range(name, dtype)
+        await self.remove_search_parameter_range(name, dtype)
         full_name = self._get_index_name_from_name_and_type(name, dtype)
         s_param = JsonDtoSearchConditionBooleanQueryItem(
             Item=JsonDtoSearchConditionRangeQuery(Field=full_name, Min=min_value, Max=max_value, MinInclusive=min_inclusive, MaxInclusive=max_inclusive),
@@ -455,7 +450,7 @@ class JsonConSearchAsync(JsonCon):
         self._counters_up_to_date = False
         return True
 
-    def remove_search_parameter_range(self, name: str, dtype: FacedType = FacedType.NO_TYPE) -> bool:
+    async def remove_search_parameter_range(self, name: str, dtype: FacedType = FacedType.NO_TYPE) -> bool:
         """
         Remove a search parameter range
         :param name: The name of the search parameter
@@ -463,14 +458,14 @@ class JsonConSearchAsync(JsonCon):
         :return: If the search parameter was removed
         """
         full_name = self._get_index_name_from_name_and_type(name, dtype)
-        s_param = self._get_search_parameter_range(full_name)
+        s_param = await self._get_search_parameter_range(full_name)
         if s_param is None:
             return False
         self._search_parameters.remove(s_param)
         self._counters_up_to_date = False
         return True
 
-    def get_search_parameter_range(self, name: str, dtype: FacedType = FacedType.NO_TYPE) -> Optional[Tuple[float, float, bool, bool]]:
+    async def get_search_parameter_range(self, name: str, dtype: FacedType = FacedType.NO_TYPE) -> Optional[Tuple[float, float, bool, bool]]:
         """
         Get the search parameter range
         :param name: The name of the search parameter
@@ -478,7 +473,7 @@ class JsonConSearchAsync(JsonCon):
         :return: The search parameter range or None if it does not exist
         """
         full_name = self._get_index_name_from_name_and_type(name, dtype)
-        s_param = self._get_search_parameter_range(full_name)
+        s_param = await self._get_search_parameter_range(full_name)
         if s_param is None:
             return None
         return s_param.item.min, s_param.item.max, s_param.item.min_inclusive, s_param.item.max_inclusive
@@ -497,10 +492,7 @@ class JsonConSearchAsync(JsonCon):
         return ret_val
 
     def clear_search_parameters_range(self) -> None:
-        """
-        Clear all search parameters range
-        :return: None
-        """
+        """Clear all search parameters range."""
         for i in range(len(self._search_parameters) - 1, -1, -1):
             search_param = self._search_parameters[i]
             querry_item_base: JsonDtoSearchConditionBaseQuery = search_param.item
@@ -524,8 +516,8 @@ class JsonConSearchAsync(JsonCon):
         """Return the active sort fields."""
         return list(self._sort_fields)
 
-    def _get_search_parameter_range(self, full_name: str) -> Optional[JsonDtoSearchConditionBooleanQueryItem]:
-        self._update_search_names_and_counters()
+    async def _get_search_parameter_range(self, full_name: str) -> Optional[JsonDtoSearchConditionBooleanQueryItem]:
+        await self._update_search_names_and_counters()
         for search_param in self._search_parameters:
             querry_item_base: JsonDtoSearchConditionBaseQuery = search_param.item
             if isinstance(querry_item_base, JsonDtoSearchConditionRangeQuery):
@@ -605,69 +597,69 @@ class JsonConSearchAsync(JsonCon):
                         return search_param
         return None
 
-    def get_current_count(self) -> int:
+    async def get_current_count(self) -> int:
         """
         Get the current count of the search
         :return: The current count of the search
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         return self._total_hits
 
-    def get_all_search_names_and_type(self) -> List[Tuple[str, FacedType]]:
+    async def get_all_search_names_and_type(self) -> List[Tuple[str, FacedType]]:
         """
         Get all search names and types currently available
         :return: The search names and types currently available
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         ret_val: List[Tuple[str, FacedType]] = []
         for counter in self._search_counters:
             ret_val.append((counter.faced_name, counter.faced_type))
         return ret_val
 
-    def get_all_search_names(self) -> List[str]:
+    async def get_all_search_names(self) -> List[str]:
         """
         Get all search names currently available
         :return: The search names currently available
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         ret_val: List[str] = []
         for counter in self._search_counters:
             ret_val.append(counter.faced_name)
         return ret_val
 
-    def get_all_search_names_range(self) -> List[str]:
+    async def get_all_search_names_range(self) -> List[str]:
         """
         Get all search names that support range
         :return: The search names that support range
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         ret_val: List[str] = []
         for counter in self._search_counters:
             if counter.support_range:
                 ret_val.append(counter.faced_name)
         return ret_val
 
-    def get_all_search_names_and_type_range(self) -> List[Tuple[str, FacedType]]:
+    async def get_all_search_names_and_type_range(self) -> List[Tuple[str, FacedType]]:
         """
         Get all search names and types that support range
         :return: The search names and types that support range
         """
-        self._update_search_names_and_counters()
+        await self._update_search_names_and_counters()
         ret_val: List[Tuple[str, FacedType]] = []
         for counter in self._search_counters:
             if counter.support_range:
                 ret_val.append((counter.faced_name, counter.faced_type))
         return ret_val
 
-    def get_results_page(self, *, start: int = 0, limit: int = 500) -> List[SearchDataBase]:
+    async def get_results_page(self, *, start: int = 0, limit: int = 500) -> List[SearchDataBase]:
         """
         Get a single page of search results.
         :param start: Zero-based offset into the result set.
         :param limit: Maximum number of documents to return.
         """
         limit = min(limit, 10000)
-        self._update_search_names_and_counters()
-        cmd_ret = self._send_command(
+        await self._update_search_names_and_counters()
+        cmd_ret = await self._send_command(
             JsonSearchAsyncRequest(
                 Condition=JsonDtoSearchConditionBooleanQuery(Items=self._search_parameters),
                 SortFields=self._sort_fields,
@@ -696,7 +688,7 @@ class JsonConSearchAsync(JsonCon):
             results.append(data)
         return results
 
-    def get_results(self, max_amount: int = 500) -> List[SearchDataBase]:
+    async def get_results(self, max_amount: int = 500) -> List[SearchDataBase]:
         """
         Get the search results
         :return: The search results
@@ -705,7 +697,7 @@ class JsonConSearchAsync(JsonCon):
         results: List[SearchDataBase] = []
         while len(results) < max_amount:
             page_limit = min(max_amount - len(results), 10000)
-            page = self.get_results_page(start=len(results), limit=page_limit)
+            page = await self.get_results_page(start=len(results), limit=page_limit)
             results.extend(page)
             if len(page) < page_limit:
                 break
@@ -728,10 +720,10 @@ class JsonConSearchAsync(JsonCon):
         else:
             setattr(data, name, value)
 
-    def _update_search_names_and_counters(self) -> None:
+    async def _update_search_names_and_counters(self) -> None:
         if self._counters_up_to_date:
             return
-        cmd_ret = self._send_command(
+        cmd_ret = await self._send_command(
             JsonSearchAsyncRequest(
                 Condition=JsonDtoSearchConditionBooleanQuery(Items=self._search_parameters),
             ),

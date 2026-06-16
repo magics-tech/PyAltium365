@@ -175,7 +175,7 @@ class SoapyConServiceDiscovery(SoapyCon):
         self.service_urls: ServiceEndpoints = ServiceEndpoints()
         self.user_info: Optional[SoapServiceDiscoveryLoginUserInfoResult] = None
 
-    def login(
+    async def login(
         self,
         user_name: str,
         password: str,
@@ -185,7 +185,7 @@ class SoapyConServiceDiscovery(SoapyCon):
     ) -> bool:
         """Login to the service discovery."""
 
-        response = self._send_command(
+        response = await self._send_command(
             None,
             SoapMethodServiceDiscoveryLogin(user_name=user_name, password=password, secure_login=secure_login, option=option, product_name=product_name),
             return_method=SoapServiceDiscoveryResponse,

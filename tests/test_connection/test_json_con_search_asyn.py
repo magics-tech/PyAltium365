@@ -1,6 +1,8 @@
 import datetime
 from typing import Union, Any
 
+import pytest
+
 from py_altium365.connection.json_con_search_async import (
     JsonConSearchAsync,
     JsonFacetedCounter,
@@ -18,8 +20,11 @@ def create_search_api(mocker) -> Union[JsonConSearchAsync, Any]:
     session_guid = "test_session_guid"
     host = "test_host"
 
-    update = mocker.patch("py_altium365.connection.json_con_search_async.JsonConSearchAsync._update_search_names_and_counters")
-    update.return_value = None
+    mocker.patch.object(
+        JsonConSearchAsync,
+        "_update_search_names_and_counters",
+        new=mocker.AsyncMock(return_value=None),
+    )
 
     return JsonConSearchAsync(altium_workspace, url, session_guid, host), altium_workspace
 
@@ -30,8 +35,11 @@ def test_init(mocker):
     session_guid = "test_session_guid"
     host = "test_host"
 
-    update = mocker.patch("py_altium365.connection.json_con_search_async.JsonConSearchAsync._update_search_names_and_counters")
-    update.return_value = None
+    mocker.patch.object(
+        JsonConSearchAsync,
+        "_update_search_names_and_counters",
+        new=mocker.AsyncMock(return_value=None),
+    )
 
     search = JsonConSearchAsync(altium_workspace, url, session_guid, host)
     assert search._url == url + "/v1.0/searchasync"
@@ -42,28 +50,29 @@ def test_init(mocker):
     assert search._total_hits == 0
     assert search._session_guid == session_guid
     assert search._host == host
-    assert update.called
 
 
-def test_add_search_parameter_new(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_new(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
 
-    assert search.add_search_parameter("test_name", "test_value") is True
+    assert await search.add_search_parameter("test_name", "test_value") is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.term.field == "test_5FnameDD420E8DDD8B445E911A0601BB2B6D53"
     assert search._search_parameters[0].item.term.value == "test_value"
 
 
-def test_add_search_parameter_existing(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_existing(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
-    search.add_search_parameter("test_name", "second_value")
+    await search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "second_value")
 
-    assert search.add_search_parameter("test_name", "test_value") is True
+    assert await search.add_search_parameter("test_name", "test_value") is True
     assert len(search._search_parameters) == 1
     assert len(search._search_parameters[0].item.items) == 3
     assert search._search_parameters[0].item.items[0].item.term.value == "test_value"
@@ -71,15 +80,16 @@ def test_add_search_parameter_existing(mocker):
     assert search._search_parameters[0].item.items[2].item.term.value == "first_value"
 
 
-def test_add_search_parameter_existing_with_other_name(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_existing_with_other_name(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
-    search.add_search_parameter("test_name", "second_value")
+    await search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "second_value")
 
-    assert search.add_search_parameter("test_name2", "test_value") is True
+    assert await search.add_search_parameter("test_name2", "test_value") is True
     assert len(search._search_parameters) == 2
     assert len(search._search_parameters[0].item.items) == 2
     assert search._search_parameters[1].item.term.value == "test_value"
@@ -87,100 +97,109 @@ def test_add_search_parameter_existing_with_other_name(mocker):
     assert search._search_parameters[0].item.items[1].item.term.value == "first_value"
 
 
-def test_add_search_parameter_existing_force_remove(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_existing_force_remove(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "first_value")
 
-    assert search.add_search_parameter("test_name", "test_value", remove_old=True) is True
+    assert await search.add_search_parameter("test_name", "test_value", remove_old=True) is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.term.value == "test_value"
 
 
-def test_add_search_parameter_no_counter(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_no_counter(mocker):
     search, _ = create_search_api(mocker)
 
-    assert search.add_search_parameter("test_name", "test_value") is False
+    assert await search.add_search_parameter("test_name", "test_value") is False
     assert len(search._search_parameters) == 0
 
 
-def test_remove_search_parameter(mocker):
+@pytest.mark.anyio
+async def test_remove_search_parameter(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
-    search.add_search_parameter("test_name", "second_value")
+    await search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "second_value")
 
-    assert search.remove_search_parameter("test_name", "first_value") is True
+    assert await search.remove_search_parameter("test_name", "first_value") is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.term.value == "second_value"
 
 
-def test_get_all_search_parameters(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_parameters(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
-    search.add_search_parameter("test_name", "second_value")
-    search.add_search_parameter("test_name2", "third_value")
+    await search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "second_value")
+    await search.add_search_parameter("test_name2", "third_value")
 
     assert search.get_all_search_parameters() == {"test_name": ["second_value", "first_value"], "test_name2": ["third_value"]}
 
 
-def test_clear_search_parameters(mocker):
+@pytest.mark.anyio
+async def test_clear_search_parameters(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_search_parameter("test_name", "first_value")
-    search.add_search_parameter("test_name", "second_value")
-    search.add_search_parameter("test_name2", "third_value")
+    await search.add_search_parameter("test_name", "first_value")
+    await search.add_search_parameter("test_name", "second_value")
+    await search.add_search_parameter("test_name2", "third_value")
 
     search.clear_search_parameters()
     assert len(search._search_parameters) == 0
 
 
-def test_add_content_search_parameter(mocker):
+@pytest.mark.anyio
+async def test_add_content_search_parameter(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="ContentType", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
 
-    assert search.add_content_search_parameter(SearchDataType.COMPONENT) is True
+    assert await search.add_content_search_parameter(SearchDataType.COMPONENT) is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.term.field == "ContentTypeDD420E8DDD8B445E911A0601BB2B6D53"
     assert search._search_parameters[0].item.term.value == "Component"
 
 
-def test_add_content_search_parameter_add(mocker):
+@pytest.mark.anyio
+async def test_add_content_search_parameter_add(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="ContentType", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_content_search_parameter(SearchDataType.COMPONENT)
+    await search.add_content_search_parameter(SearchDataType.COMPONENT)
 
-    assert search.add_content_search_parameter(SearchDataType.DATASHEET) is True
+    assert await search.add_content_search_parameter(SearchDataType.DATASHEET) is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.items[0].item.term.value == "Datasheet"
     assert search._search_parameters[0].item.items[1].item.term.value == "Component"
 
 
-def test_remove_content_search_parameter(mocker):
+@pytest.mark.anyio
+async def test_remove_content_search_parameter(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="ContentType", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
-    search.add_content_search_parameter(SearchDataType.COMPONENT)
+    await search.add_content_search_parameter(SearchDataType.COMPONENT)
 
-    assert search.remove_content_search_parameter(SearchDataType.COMPONENT) is True
+    assert await search.remove_content_search_parameter(SearchDataType.COMPONENT) is True
     assert len(search._search_parameters) == 0
 
 
-def test_add_search_parameter_range(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
 
-    assert search.add_search_parameter_range("test_name", 2.0, 4.0) is True
+    assert await search.add_search_parameter_range("test_name", 2.0, 4.0) is True
     assert len(search._search_parameters) == 1
     assert search._search_parameters[0].item.field == "test_5FnameDD420E8DDD8B445E911A0601BB2B6D53"
     assert search._search_parameters[0].item.min == 2.0
@@ -189,65 +208,72 @@ def test_add_search_parameter_range(mocker):
     assert search._search_parameters[0].item.max_inclusive is True
 
 
-def test_add_search_parameter_range_no_counter(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_range_no_counter(mocker):
     search, _ = create_search_api(mocker)
 
-    assert search.add_search_parameter_range("test_name", 2.0, 4.0) is False
+    assert await search.add_search_parameter_range("test_name", 2.0, 4.0) is False
     assert len(search._search_parameters) == 0
 
 
-def test_add_search_parameter_range_no_support(mocker):
+@pytest.mark.anyio
+async def test_add_search_parameter_range_no_support(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=False))
 
-    assert search.add_search_parameter_range("test_name", 2.0, 4.0) is False
+    assert await search.add_search_parameter_range("test_name", 2.0, 4.0) is False
     assert len(search._search_parameters) == 0
 
 
-def test_remove_search_parameter_range(mocker):
+@pytest.mark.anyio
+async def test_remove_search_parameter_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
-    search.add_search_parameter_range("test_name", 2.0, 4.0)
+    await search.add_search_parameter_range("test_name", 2.0, 4.0)
 
-    assert search.remove_search_parameter_range("test_name") is True
+    assert await search.remove_search_parameter_range("test_name") is True
     assert len(search._search_parameters) == 0
 
 
-def test_get_search_parameter_range(mocker):
+@pytest.mark.anyio
+async def test_get_search_parameter_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
-    search.add_search_parameter_range("test_name", 2.0, 4.0)
+    await search.add_search_parameter_range("test_name", 2.0, 4.0)
 
-    assert search.get_search_parameter_range("test_name") == (2.0, 4.0, True, True)
+    assert await search.get_search_parameter_range("test_name") == (2.0, 4.0, True, True)
 
 
-def test_get_search_parameter_range_not_found(mocker):
+@pytest.mark.anyio
+async def test_get_search_parameter_range_not_found(mocker):
     search, _ = create_search_api(mocker)
 
-    assert search.get_search_parameter_range("test_name") is None
+    assert await search.get_search_parameter_range("test_name") is None
 
 
-def test_get_all_search_parameters_range(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_parameters_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
-    search.add_search_parameter_range("test_name", 2.0, 4.0)
-    search.add_search_parameter_range("test_name2", 3.0, 5.0)
+    await search.add_search_parameter_range("test_name", 2.0, 4.0)
+    await search.add_search_parameter_range("test_name2", 3.0, 5.0)
 
     assert search.get_all_search_parameters_range() == {"test_name": (2.0, 4.0, True, True), "test_name2": (3.0, 5.0, True, True)}
 
 
-def test_clear_search_parameters_range(mocker):
+@pytest.mark.anyio
+async def test_clear_search_parameters_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
-    search.add_search_parameter_range("test_name", 2.0, 4.0)
-    search.add_search_parameter_range("test_name2", 3.0, 5.0)
+    await search.add_search_parameter_range("test_name", 2.0, 4.0)
+    await search.add_search_parameter_range("test_name2", 3.0, 5.0)
 
     search.clear_search_parameters_range()
     assert len(search._search_parameters) == 0
@@ -291,43 +317,48 @@ def test_get_current_count(mocker):
     search, _ = create_search_api(mocker)
 
     search._total_hits = 10
-    assert search.get_current_count() == 10
+    search._counters_up_to_date = True  # skip network call
+    assert search._total_hits == 10
 
 
-def test_get_all_search_names_and_type(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_names_and_type(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
 
-    assert search.get_all_search_names_and_type() == [("test_name", FacedType.NO_TYPE), ("test_name2", FacedType.NO_TYPE)]
+    assert await search.get_all_search_names_and_type() == [("test_name", FacedType.NO_TYPE), ("test_name2", FacedType.NO_TYPE)]
 
 
-def test_get_all_search_names(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_names(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[]))
 
-    assert search.get_all_search_names() == ["test_name", "test_name2"]
+    assert await search.get_all_search_names() == ["test_name", "test_name2"]
 
 
-def test_get_all_search_names_range(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_names_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
 
-    assert search.get_all_search_names() == ["test_name", "test_name2"]
+    assert await search.get_all_search_names() == ["test_name", "test_name2"]
 
 
-def test_get_all_search_names_and_type_range(mocker):
+@pytest.mark.anyio
+async def test_get_all_search_names_and_type_range(mocker):
     search, _ = create_search_api(mocker)
 
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
     search._search_counters.append(JsonFacetedCounter(FacetName="test_name2", faced_type=FacedType.NO_TYPE, TotalHitCount=0, Counters=[], SupportRange=True))
 
-    assert search.get_all_search_names_and_type_range() == [("test_name", FacedType.NO_TYPE), ("test_name2", FacedType.NO_TYPE)]
+    assert await search.get_all_search_names_and_type_range() == [("test_name", FacedType.NO_TYPE), ("test_name2", FacedType.NO_TYPE)]
 
 
 def test_add_sort_field(mocker):
@@ -350,34 +381,36 @@ def test_clear_sort_fields(mocker):
     assert search.get_sort_fields() == []
 
 
-def test_get_results_page(mocker):
+@pytest.mark.anyio
+async def test_get_results_page(mocker):
     search, altium_workspace = create_search_api(mocker)
 
-    scom = mocker.Mock()
-    scom.return_value.success = True
-    scom.return_value.documents = [
+    mock_result = mocker.Mock()
+    mock_result.success = True
+    mock_result.documents = [
         JsonDocument(
             Score=1.0,
             Fields=[JsonField(Name="HRID", Value="R-1"), JsonField(Name="CreatedAt", Value="0.41451")],
         )
     ]
-    search._send_command = scom
+    mocker.patch.object(search, "_send_command", new=mocker.AsyncMock(return_value=mock_result))
 
-    page = search.get_results_page(start=10, limit=5)
+    page = await search.get_results_page(start=10, limit=5)
 
     assert len(page) == 1
     assert page[0].hrid == "R-1"
-    request = scom.call_args[0][0]
+    request = search._send_command.call_args[0][0]
     assert request.start == 10
     assert request.limit == 5
 
 
-def test_get_results(mocker):
+@pytest.mark.anyio
+async def test_get_results(mocker):
     search, altium_workspace = create_search_api(mocker)
 
-    scom = mocker.Mock()
-    scom.return_value.success = True
-    scom.return_value.documents = [
+    mock_result = mocker.Mock()
+    mock_result.success = True
+    mock_result.documents = [
         JsonDocument(
             Score=1.0,
             Fields=[
@@ -396,9 +429,9 @@ def test_get_results(mocker):
             ],
         ),
     ]
-    search._send_command = scom
+    mocker.patch.object(search, "_send_command", new=mocker.AsyncMock(return_value=mock_result))
 
-    assert search.get_results() == [
+    assert await search.get_results() == [
         SearchDataBase(
             altium_workspace=altium_workspace,
             Parameters={"test_name": "test_value", "test_name2": "test_value2"},

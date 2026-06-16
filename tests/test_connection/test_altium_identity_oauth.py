@@ -20,7 +20,7 @@ def test_parse_workspace_home_tokens_extracts_gsid_and_session_id():
 
 def test_rest_con_uses_x_alugsid_header():
     client = RestCon(
-        session=MagicMock(),
+        client=MagicMock(),
         url="https://ws.example/components/api/components",
         access_token="jwt-token",
         auth_mode="alugsid",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Literal, Optional
 
-from requests import Response, Session
+import httpx
 
 RestAuthMode = Literal["afs", "bearer", "cookies", "alugsid"]
 
@@ -14,14 +14,14 @@ class RestCon:
 
     def __init__(
         self,
-        session: Session,
+        client: httpx.AsyncClient,
         url: str,
         session_guid: str = "",
         *,
         access_token: Optional[str] = None,
         auth_mode: RestAuthMode = "afs",
     ) -> None:
-        self._session = session
+        self._client = client
         self._url = url
         self._session_guid = session_guid
         self._access_token = access_token
@@ -45,9 +45,9 @@ class RestCon:
             headers["Authorization"] = f"AFSSessionID {self._session_guid}"
         return headers
 
-    def _get(self, path: str = "", params: Optional[Dict[str, Any]] = None) -> Response:
+    async def _get(self, path: str = "", params: Optional[Dict[str, Any]] = None) -> httpx.Response:
         url = self._url if not path else f"{self._url.rstrip('/')}/{path.lstrip('/')}"
-        response = self._session.get(url, params=params, headers=self._auth_headers())
+        response = await self._client.get(url, params=params, headers=self._auth_headers())
         if response.status_code != 200:
             body = response.text[:500]
             raise ConnectionError(f"REST GET failed (HTTP {response.status_code}): {body}")

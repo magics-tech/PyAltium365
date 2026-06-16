@@ -35,7 +35,7 @@ class AltiumApi:
         # Workspace variables
         self._service_discovery_con: Optional[SoapyConServiceDiscovery] = None
 
-    def login(self, username: str, password: str, return_message: bool = False) -> Union[str, bool]:
+    async def login(self, username: str, password: str, return_message: bool = False) -> Union[str, bool]:
         """
         Login to the Altium API
         :param username: The altium username
@@ -44,18 +44,21 @@ class AltiumApi:
         :return: True if the login was successful, False otherwise or the message if return_message is True
         """
         try:
-            user_login = self._portal_con.login_user(username, password)
+            user_login = await self._portal_con.login_user(username, password)
             if not user_login.success:
                 if return_message and user_login.message is not None:
                     return user_login.message
                 return False
             self._session_guid = user_login.session_handle
-            self._workspace_con = SoapyConWorkspace(self)
+            workspace_url = await self.get_service_url(PrtGlobalService.WORKSPACE)
+            if workspace_url is None:
+                raise ConnectionError("Failed to get workspace URL")
+            self._workspace_con = SoapyConWorkspace(workspace_url, self)
         except ConnectionError:
             return False
         return True
 
-    def login_workspace(
+    async def login_workspace(
         self,
         workspace: Union[UserWorkspaceInfo, str],
         username: str,
@@ -79,7 +82,7 @@ class AltiumApi:
         :return: True if the login was successful, False otherwise or the message if return_message is True
         """
         if self._session_guid is None or force_login:
-            msg = self.login(username, password, return_message)
+            msg = await self.login(username, password, return_message)
             if msg is not True:
                 return None
         if isinstance(workspace, UserWorkspaceInfo):
@@ -87,7 +90,7 @@ class AltiumApi:
         if not isinstance(workspace, str):
             return None
         service_discovery_con = SoapyConServiceDiscovery(workspace)
-        service_discovery_con.login(username, password)
+        await service_discovery_con.login(username, password)
         if not service_discovery_con.user_info:
             return None
 
@@ -96,14 +99,14 @@ class AltiumApi:
         if use_oauth_for_rest:
             oauth_client = AltiumIdentityOAuth(ConnectionHandler.get_instance())
             if oauth_refresh_token and oauth_client_id and oauth_client_secret:
-                tokens = oauth_client.login_with_refresh_token(
+                tokens = await oauth_client.login_with_refresh_token(
                     client_id=oauth_client_id,
                     client_secret=oauth_client_secret,
                     refresh_token=oauth_refresh_token,
                 )
                 oauth_access_token = tokens.access_token
             else:
-                tokens = oauth_client.login_with_password(
+                tokens = await oauth_client.login_with_password(
                     AltiumOAuthCredentials(
                         username=username,
                         password=password,
@@ -122,7 +125,7 @@ class AltiumApi:
             oauth_uses_cookies=oauth_uses_cookies,
         )
 
-    def get_service_url(self, service: PrtGlobalService, force_request: bool = False) -> Optional[str]:
+    async def get_service_url(self, service: PrtGlobalService, force_request: bool = False) -> Optional[str]:
         """
         Get a service URL
         :param service: The service to get the URL for
@@ -131,12 +134,12 @@ class AltiumApi:
         """
         if service.name in self._service_urls and not force_request:
             return self._service_urls[service.name]
-        url = self._portal_con.get_prt_global_service_url(service, self._session_guid)
+        url = await self._portal_con.get_prt_global_service_url(service, self._session_guid)
         if url is not None:
             self._service_urls[service.name] = url
         return url
 
-    def get_user_workspaces(self) -> List[UserWorkspaceInfo]:
+    async def get_user_workspaces(self) -> List[UserWorkspaceInfo]:
         """
         Get the user workspaces
         :return: The user workspaces
@@ -145,4 +148,4 @@ class AltiumApi:
             return []
         if self._session_guid is None:
             return []
-        return self._workspace_con.get_user_workspaces(self._session_guid)
+        return await self._workspace_con.get_user_workspaces(self._session_guid)

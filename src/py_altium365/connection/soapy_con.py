@@ -1,8 +1,8 @@
 import typing
 from typing import Generic, Optional, TypeVar
 
+import httpx
 from pydantic_xml import BaseXmlModel, element
-from requests import Session
 
 
 class SoapHeader(
@@ -88,19 +88,19 @@ class SoapResponse(
 class SoapyCon:
     """Base class for SOAP connection."""
 
-    def __init__(self, session: Session, url: str):
+    def __init__(self, client: httpx.AsyncClient, url: str):
         """
         Initialize the SoapyCon object
-        :param session: The main connection session
+        :param client: The async HTTP client
         :param url: The URL to send the SOAP request to
         """
-        self._session: Session = session
+        self._client: httpx.AsyncClient = client
         self._url: str = url
 
     ReturnMethodT = TypeVar("ReturnMethodT", bound=SoapMethod)
 
     @typing.no_type_check
-    def _send_command(
+    async def _send_command(
         self,
         header: Optional[SoapHeader],
         method: SoapMethod,
@@ -156,7 +156,7 @@ class SoapyCon:
             "User-Agent": "Altium Designer",
         }
 
-        response = self._session.post(self._url, data=envelope.to_xml(encoding="UTF-8"), headers=headers)
+        response = await self._client.post(self._url, content=envelope.to_xml(encoding="UTF-8"), headers=headers)
 
         if response.status_code != 200:
             raise ConnectionError(f'Failed to send "{soap_action}" command!')

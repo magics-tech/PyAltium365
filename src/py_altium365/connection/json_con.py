@@ -1,7 +1,7 @@
 from typing import Generic, Type, TypeVar
 
+import httpx
 from pydantic import BaseModel
-from requests import Session
 
 
 class JsonRequest(BaseModel):
@@ -24,22 +24,22 @@ class JsonReturn(BaseModel):
 class JsonCon:
     """Base class for JSON connection."""
 
-    def __init__(self, session: Session, url: str, session_guid: str, host: str):
+    def __init__(self, client: httpx.AsyncClient, url: str, session_guid: str, host: str):
         """
         Initialize the JsonCon object
-        :param session: The main connection session
+        :param client: The async HTTP client
         :param url: The URL to send the JSON request to
         :param session_guid: The session GUID
         :param host: The host for the host parameter
         """
-        self._session: Session = session
+        self._client: httpx.AsyncClient = client
         self._url: str = url
         self._session_guid: str = session_guid
         self._host: str = host
 
     ReturnMethodT = TypeVar("ReturnMethodT", bound=JsonReturn)
 
-    def _send_command(self, request: JsonRequest, return_method: Type[ReturnMethodT]) -> ReturnMethodT:
+    async def _send_command(self, request: JsonRequest, return_method: Type[ReturnMethodT]) -> ReturnMethodT:
         headers = {
             "Accept": "application/json",
             "Authorization": f"AFSSessionID {self._session_guid}",
@@ -50,7 +50,10 @@ class JsonCon:
 
         json_data = JsonBase(request=request).json(by_alias=True)
 
-        response = self._session.request("REPORT", self._url, data=json_data, headers=headers)
+        response = await self._client.request(
+            "REPORT", self._url, content=json_data.encode("utf-8"), headers=headers,
+            timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0),
+        )
 
         if response.status_code != 200:
             body = response.text[:500]

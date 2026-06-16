@@ -106,14 +106,14 @@ class ComponentsApiClient(RestListClient[ComponentsListPage, ComponentRecord]):
     def _page_items(self, page: ComponentsListPage) -> List[ComponentRecord]:
         return page.items
 
-    def list_page(self, query: Optional[ComponentsQuery] = None, **kwargs: Any) -> ComponentsListPage:
+    async def list_page(self, query: Optional[ComponentsQuery] = None, **kwargs: Any) -> ComponentsListPage:
         if query is None:
             query = ComponentsQuery(**kwargs) if kwargs else ComponentsQuery()
         elif kwargs:
             query = query.model_copy(update=kwargs)
-        return super().list_page(query)
+        return await super().list_page(query)
 
-    def list_recent(
+    async def list_recent(
         self,
         updated_after: datetime,
         *,
@@ -133,7 +133,7 @@ class ComponentsApiClient(RestListClient[ComponentsListPage, ComponentRecord]):
             if max_items is not None:
                 request_limit = min(page_size, max_items - len(results))
 
-            page = self.list_page(query.model_copy(update={"start": start, "limit": request_limit}))
+            page = await self.list_page(query.model_copy(update={"start": start, "limit": request_limit}))
             if not page.items:
                 break
 
@@ -152,9 +152,9 @@ class ComponentsApiClient(RestListClient[ComponentsListPage, ComponentRecord]):
 
         return results
 
-    def find_by_hrid(self, hrid: str) -> Optional[ComponentRecord]:
+    async def find_by_hrid(self, hrid: str) -> Optional[ComponentRecord]:
         """Look up a single component by HRID via REST text search."""
-        page = self.list_page(ComponentsQuery(text=hrid, limit=50))
+        page = await self.list_page(ComponentsQuery(text=hrid, limit=50))
         normalized = hrid.strip().lower()
         for record in page.items:
             if record.hrid.strip().lower() == normalized:
