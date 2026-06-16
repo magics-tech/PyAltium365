@@ -1,6 +1,10 @@
 # PyAltium365
 
-Python client for Altium 365 (portal SOAP, workspace service discovery, vault, and JSON searchasync).
+Python client for Altium 365 (portal SOAP, workspace service discovery, vault, JSON searchasync, and Components REST).
+
+**Documentation:** [docs/README.md](docs/README.md) · [architecture](docs/architecture.md) · [usage](docs/usage.md) · [AI index](AGENTS.md)
+
+Primary consumer: [AutomatedAltiumSystem](../AutomatedAltiumSystem/) (MagHub Altium worker).
 
 ## Install
 

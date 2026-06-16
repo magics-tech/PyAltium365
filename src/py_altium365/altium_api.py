@@ -103,7 +103,7 @@ class AltiumApi:
                 )
                 oauth_access_token = tokens.access_token
             else:
-                oauth_client.login_with_password(
+                tokens = oauth_client.login_with_password(
                     AltiumOAuthCredentials(
                         username=username,
                         password=password,
@@ -112,7 +112,8 @@ class AltiumApi:
                     ),
                     service_session_guid=service_discovery_con.user_info.session_id,
                 )
-                oauth_uses_cookies = True
+                oauth_access_token = tokens.access_token
+                oauth_uses_cookies = oauth_access_token is None
 
         return AltiumApiWorkspace(
             workspace,

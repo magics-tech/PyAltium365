@@ -9,6 +9,11 @@ from py_altium365.connection.vault.soapy_con_vault import SoapConVault
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
+    AluLifeCycleDefinition,
+    AluLifeCycleState,
+    AluLifeCycleStateChange,
+    AluLifeCycleStateTransition,
+    AluItemRevision,
     SoapMethodOption,
 )
 
@@ -55,7 +60,12 @@ class AltiumApiWorkspace:
     def create_components_client(self) -> ComponentsApiClient:
         """Create a Components REST API client for this workspace."""
         base_url = self._components_api_url()
-        auth_mode = "cookies" if self._oauth_uses_cookies else "afs"
+        if self._oauth_access_token:
+            auth_mode = "alugsid"
+        elif self._oauth_uses_cookies:
+            auth_mode = "cookies"
+        else:
+            auth_mode = "afs"
         return ComponentsApiClient(
             ConnectionHandler.get_instance(),
             base_url,
@@ -126,3 +136,62 @@ class AltiumApiWorkspace:
         if folder.guid is None:
             return []
         return self._vault.get_alu_folders(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="ParentFolderGUID='" + folder.guid + "'")
+
+    def get_possible_life_cycle_state_transitions(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateTransition]:
+        """
+        Get possible life cycle state transitions for an item revision.
+        :param item_revision: The AluItemRevision to get transitions for.
+        :return: A list of AluLifeCycleStateTransition objects representing valid transitions from the current state.
+        """
+        if item_revision.lifecycle_state_guid is None:
+            return []
+        return self._vault.get_alu_life_cycle_state_transitions(
+            p_filter=f"LifeCycleStateBeforeGUID = '{item_revision.lifecycle_state_guid}'"
+        )
+
+    def change_life_cycle_state(
+        self,
+        item_revision_list: list[AluItemRevision],
+        life_cycle_transition_list: list[AluLifeCycleStateTransition],
+    ) -> bool:
+        """
+        Change the life cycle state of one or more item revisions.
+        :param item_revision_list: List of AluItemRevision objects to transition.
+        :param life_cycle_transition_list: List of AluLifeCycleStateTransition objects to apply (one per revision).
+        :return: True if all state changes were applied successfully.
+        """
+        if len(item_revision_list) != len(life_cycle_transition_list):
+            return False
+        return self._vault.add_alu_life_cycle_state_changes(
+            item_revision_guids=[r.guid for r in item_revision_list],
+            life_cycle_state_transition_guids=[t.guid for t in life_cycle_transition_list],
+            life_cycle_state_after_guids=[t.life_cycle_state_after_guid for t in life_cycle_transition_list],
+        )
+
+    def get_life_cycle_state_changes_from_item_revision(self, item_revision: AluItemRevision) -> list[AluLifeCycleStateChange]:
+        """
+        Get all life cycle state changes recorded for an item revision.
+        :param item_revision: The AluItemRevision to get state changes for.
+        :return: A list of AluLifeCycleStateChange objects.
+        """
+        if item_revision.guid is None:
+            return []
+        return self._vault.get_alu_life_cycle_state_changes(
+            p_filter=f"ItemRevisionGUID = '{item_revision.guid}'"
+        )
+
+    def get_life_cycle_states(self, p_filter: Optional[str] = None) -> list[AluLifeCycleState]:
+        """
+        Get life cycle states from the vault.
+        :param p_filter: Optional filter string.
+        :return: A list of AluLifeCycleState objects.
+        """
+        return self._vault.get_alu_life_cycle_states(p_filter=p_filter)
+
+    def get_life_cycle_definitions(self, p_filter: Optional[str] = None) -> list[AluLifeCycleDefinition]:
+        """
+        Get life cycle definitions from the vault.
+        :param p_filter: Optional filter string.
+        :return: A list of AluLifeCycleDefinition objects.
+        """
+        return self._vault.get_alu_life_cycle_definitions(p_filter=p_filter)

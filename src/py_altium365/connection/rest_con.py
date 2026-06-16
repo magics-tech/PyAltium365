@@ -6,7 +6,7 @@ from typing import Any, Dict, Literal, Optional
 
 from requests import Response, Session
 
-RestAuthMode = Literal["afs", "bearer", "cookies"]
+RestAuthMode = Literal["afs", "bearer", "cookies", "alugsid"]
 
 
 class RestCon:
@@ -25,8 +25,10 @@ class RestCon:
         self._url = url
         self._session_guid = session_guid
         self._access_token = access_token
-        if access_token:
-            self._auth_mode: RestAuthMode = "bearer"
+        if access_token and auth_mode == "alugsid":
+            self._auth_mode: RestAuthMode = "alugsid"
+        elif access_token:
+            self._auth_mode = "bearer"
         else:
             self._auth_mode = auth_mode
 
@@ -35,7 +37,9 @@ class RestCon:
             "Accept": "application/json",
             "User-Agent": "Altium Designer",
         }
-        if self._auth_mode == "bearer" and self._access_token:
+        if self._auth_mode == "alugsid" and self._access_token:
+            headers["x-alugsid"] = self._access_token
+        elif self._auth_mode == "bearer" and self._access_token:
             headers["Authorization"] = f"Bearer {self._access_token}"
         elif self._auth_mode == "afs" and self._session_guid:
             headers["Authorization"] = f"AFSSessionID {self._session_guid}"

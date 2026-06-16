@@ -59,6 +59,38 @@ class AluLifeCycleStateChange(AluObject):
     note: Optional[str] = element(tag="Note", default=None)
 
 
+class AluLifeCycleState(AluShareableObject, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
+    """Class representing a life cycle state in Altium Vault."""
+
+    state_index: Optional[int] = element(tag="StateIndex", default=None)
+    life_cycle_stage_guid: Optional[str] = element(tag="LifeCycleStageGUID", default=None)
+    life_cycle_definition_guid: Optional[str] = element(tag="LifeCycleDefinitionGUID", default=None)
+    is_initial_state: Optional[bool] = element(tag="IsInitialState", default=None)
+    color: Optional[str] = element(tag="Color", default=None)
+    text_color: Optional[str] = element(tag="TextColor", default=None)
+    is_visible: Optional[bool] = element(tag="IsVisible", default=None)
+    is_applicable: Optional[bool] = element(tag="IsApplicable", default=None)
+
+
+class AluLifeCycleDefinition(AluShareableObject, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
+    """Class representing a life cycle definition in Altium Vault."""
+
+    life_cycle_management: Optional[str] = element(tag="LifeCycleManagement", default=None)
+    link_to_revision_scheme: Optional[bool] = element(tag="LinkToRevisionScheme", default=None)
+    control_per_content_type: Optional[bool] = element(tag="ControlPerContentType", default=None)
+
+
+class AluLifeCycleStateTransition(AluObject, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
+    """Class representing a life cycle state transition in Altium Vault."""
+
+    menu_text_format: Optional[str] = element(tag="MenuTextFormat", default=None)
+    life_cycle_state_before_guid: Optional[str] = element(tag="LifeCycleStateBeforeGUID", default=None)
+    life_cycle_state_after_guid: Optional[str] = element(tag="LifeCycleStateAfterGUID", default=None)
+    life_cycle_definition_guid: Optional[str] = element(tag="LifeCycleDefinitionGUID", default=None)
+    transition_index: Optional[int] = element(tag="TransitionIndex", default=None)
+    permission_type: Optional[int] = element(tag="PermissionType", default=None)
+
+
 class AluItemRevision(AluShareableObject, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
     """Class representing an item revision in Altium Vault."""
 
@@ -94,6 +126,31 @@ class AluItemRevision(AluShareableObject, tag="item", nsmap={"temp": "http://tem
     is_visible: Optional[bool] = element(tag="IsVisible", default=None)
     is_applicable: Optional[bool] = element(tag="IsApplicable", default=None)
     is_active: Optional[bool] = element(tag="IsActive", default=None)
+
+    def get_possible_life_cycle_state_transitions(self, altium_workspace: "AltiumApiWorkspace") -> "List[AluLifeCycleStateTransition]":
+        """
+        Get possible life cycle state transitions for this item revision.
+        :param altium_workspace: The Altium API workspace object.
+        :return: A list of AluLifeCycleStateTransition objects.
+        """
+        return altium_workspace.get_possible_life_cycle_state_transitions(self)
+
+    def change_life_cycle_state(self, altium_workspace: "AltiumApiWorkspace", transition: "AluLifeCycleStateTransition") -> bool:
+        """
+        Change the life cycle state of this item revision.
+        :param altium_workspace: The Altium API workspace object.
+        :param transition: The life cycle state transition to apply.
+        :return: True if the state change was successful.
+        """
+        return altium_workspace.change_life_cycle_state([self], [transition])
+
+    def get_life_cycle_state_changes(self, altium_workspace: "AltiumApiWorkspace") -> "List[AluLifeCycleStateChange]":
+        """
+        Get all life cycle state changes for this item revision.
+        :param altium_workspace: The Altium API workspace object.
+        :return: A list of AluLifeCycleStateChange objects.
+        """
+        return altium_workspace.get_life_cycle_state_changes_from_item_revision(self)
 
 
 class AluTag(AluObject):

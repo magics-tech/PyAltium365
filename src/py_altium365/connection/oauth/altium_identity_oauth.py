@@ -15,9 +15,12 @@ _TOKEN_URL = f"{_AUTH_BASE}/connect/token"
 _JSON_CONTENT_TYPE = "application/json-patch+json"
 _BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
 )
 _CONTEXT_COOKIE_RE = re.compile(r"ALU_365_CONTEXT=([^;]+)")
+_GSID_RE = re.compile(r"window\.__gsid\s*=\s*'([^']+)'")
+_SESSION_ID_RE = re.compile(r"window\.__sessionId\s*=\s*'([^']+)'")
+_DEFAULT_WEB_CLIENT_ID = "04189187-35DF-4C54-8941-A6FAB52CEE9B"
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,7 @@ class AltiumOAuthTokens:
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
     expires_in: Optional[int] = None
+    session_id: Optional[str] = None
 
 
 def normalize_workspace_url(workspace_url: str) -> str:
@@ -41,6 +45,16 @@ def normalize_workspace_url(workspace_url: str) -> str:
     if normalized.endswith(":443"):
         normalized = normalized[:-4]
     return normalized
+
+
+def parse_workspace_home_tokens(home_html: str) -> tuple[Optional[str], Optional[str]]:
+    """Extract OAuth JWT tokens embedded in the workspace /home page."""
+    gsid_match = _GSID_RE.search(home_html)
+    session_match = _SESSION_ID_RE.search(home_html)
+    return (
+        gsid_match.group(1) if gsid_match else None,
+        session_match.group(1) if session_match else None,
+    )
 
 
 class AltiumIdentityOAuth:
@@ -86,11 +100,19 @@ class AltiumIdentityOAuth:
                 "visitorId": secrets.token_urlsafe(12),
             },
         )
-        next_url = signin.get("returnUrl", "")
-        next_url = self._complete_two_factor(next_url, credentials.totp_code)
+        next_url = self._resolve_post_signin_url(signin, callback_return_url)
+        next_url = self._complete_two_factor(
+            next_url,
+            credentials.totp_code,
+            callback_return_url,
+        )
         self._follow_authorize_callback(next_url)
-        self._bootstrap_workspace_session(workspace_base)
-        self._tokens = AltiumOAuthTokens(access_token=None)
+        gsid, session_id = self._load_workspace_tokens(workspace_base)
+        if gsid is None:
+            raise ConnectionError(
+                "Altium OAuth completed but workspace access token (__gsid) was not found"
+            )
+        self._tokens = AltiumOAuthTokens(access_token=gsid, session_id=session_id)
         return self._tokens
 
     def login_with_refresh_token(
@@ -163,6 +185,38 @@ class AltiumIdentityOAuth:
             },
         )
 
+    def _resolve_post_signin_url(self, signin: dict, callback_return_url: str) -> str:
+        next_url = (signin.get("returnUrl") or "").strip()
+        if not next_url or "/connect/authorize/callback" in next_url:
+            return next_url or callback_return_url
+        if "/2fa" in next_url:
+            return next_url
+        return callback_return_url
+
+    def _load_workspace_tokens(self, workspace_base: str) -> tuple[Optional[str], Optional[str]]:
+        home_response = self._session.get(
+            f"{workspace_base}/home",
+            allow_redirects=True,
+            timeout=30,
+        )
+        gsid, session_id = parse_workspace_home_tokens(home_response.text)
+        if gsid is not None:
+            return gsid, session_id
+        if self._has_workspace_context_cookie():
+            home_response = self._session.get(
+                f"{workspace_base}/home",
+                allow_redirects=True,
+                timeout=30,
+            )
+            return parse_workspace_home_tokens(home_response.text)
+        self._bootstrap_workspace_session(workspace_base)
+        home_response = self._session.get(
+            f"{workspace_base}/home",
+            allow_redirects=True,
+            timeout=30,
+        )
+        return parse_workspace_home_tokens(home_response.text)
+
     def _bootstrap_workspace_session(self, workspace_base: str) -> None:
         if self._has_workspace_context_cookie():
             return
@@ -176,22 +230,31 @@ class AltiumIdentityOAuth:
                 return True
         return False
 
-    def _complete_two_factor(self, next_url: str, totp_code: Optional[str]) -> str:
+    def _complete_two_factor(
+        self,
+        next_url: str,
+        totp_code: Optional[str],
+        callback_return_url: str,
+    ) -> str:
         if "/2fa" not in next_url:
             return next_url
 
-        if totp_code:
-            result = self._json_post(
-                f"{_AUTH_BASE}/api/2fa/challenge",
-                {"code": totp_code},
+        if not totp_code:
+            raise ConnectionError(
+                "Altium MFA is required for this account. Set ALTIUM_OAUTH_TOTP (or "
+                "oauth_totp_code in altium_api_config.yaml), ALTIUM_OAUTH_TOTP_SECRET, "
+                "or use OAuth refresh tokens with ALTIUM_CLIENT_ID and ALTIUM_CLIENT_SECRET "
+                "from a registered Altium app."
             )
-            return result.get("returnUrl", next_url)
 
         result = self._json_post(
             f"{_AUTH_BASE}/api/2fa/challenge",
-            {"skip": True},
+            {
+                "code": totp_code,
+                "returnUrl": callback_return_url,
+            },
         )
-        return result.get("returnUrl", next_url)
+        return result.get("returnUrl", callback_return_url)
 
     def _follow_authorize_callback(self, next_url: str) -> None:
         if not next_url:

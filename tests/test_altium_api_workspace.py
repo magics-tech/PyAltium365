@@ -3,6 +3,11 @@ from typing import Tuple, Any
 import pytest
 
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
+from py_altium365.connection.vault.soapy_con_vault_base import (
+    AluItemRevision,
+    AluLifeCycleStateTransition,
+    AluLifeCycleStateChange,
+)
 
 
 def create_workspace_api(mocker) -> Tuple[AltiumApiWorkspace, Any]:
@@ -135,3 +140,80 @@ def test_get_folders_in_folder(mocker):
     api._vault.get_alu_folders = mocker.Mock(return_value=[child])
 
     assert api.get_folders_in_folder(folder) == [child]
+
+
+def test_get_possible_life_cycle_state_transitions(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1", lifecycle_state_guid="state-guid-1")
+    transition = AluLifeCycleStateTransition(guid="trans-1", life_cycle_state_before_guid="state-guid-1")
+    api._vault.get_alu_life_cycle_state_transitions = mocker.Mock(return_value=[transition])
+
+    result = api.get_possible_life_cycle_state_transitions(revision)
+
+    assert result == [transition]
+    api._vault.get_alu_life_cycle_state_transitions.assert_called_once_with(
+        p_filter="LifeCycleStateBeforeGUID = 'state-guid-1'"
+    )
+
+
+def test_get_possible_life_cycle_state_transitions_no_guid(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1", lifecycle_state_guid=None)
+    api._vault.get_alu_life_cycle_state_transitions = mocker.Mock()
+
+    result = api.get_possible_life_cycle_state_transitions(revision)
+
+    assert result == []
+    api._vault.get_alu_life_cycle_state_transitions.assert_not_called()
+
+
+def test_change_life_cycle_state(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1", lifecycle_state_guid="state-before")
+    transition = AluLifeCycleStateTransition(guid="trans-1", life_cycle_state_after_guid="state-after-1")
+    api._vault.add_alu_life_cycle_state_changes = mocker.Mock(return_value=True)
+
+    result = api.change_life_cycle_state([revision], [transition])
+
+    assert result is True
+    api._vault.add_alu_life_cycle_state_changes.assert_called_once_with(
+        item_revision_guids=["rev-1"],
+        life_cycle_state_transition_guids=["trans-1"],
+        life_cycle_state_after_guids=["state-after-1"],
+    )
+
+
+def test_change_life_cycle_state_length_mismatch(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1")
+    api._vault.add_alu_life_cycle_state_changes = mocker.Mock()
+
+    result = api.change_life_cycle_state([revision], [])
+
+    assert result is False
+    api._vault.add_alu_life_cycle_state_changes.assert_not_called()
+
+
+def test_get_life_cycle_state_changes_from_item_revision(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1")
+    change = AluLifeCycleStateChange(guid="change-1", item_revision_guid="rev-1")
+    api._vault.get_alu_life_cycle_state_changes = mocker.Mock(return_value=[change])
+
+    result = api.get_life_cycle_state_changes_from_item_revision(revision)
+
+    assert result == [change]
+    api._vault.get_alu_life_cycle_state_changes.assert_called_once_with(
+        p_filter="ItemRevisionGUID = 'rev-1'"
+    )
+
+
+def test_get_life_cycle_state_changes_from_item_revision_no_guid(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid=None)
+    api._vault.get_alu_life_cycle_state_changes = mocker.Mock()
+
+    result = api.get_life_cycle_state_changes_from_item_revision(revision)
+
+    assert result == []
+    api._vault.get_alu_life_cycle_state_changes.assert_not_called()
