@@ -21,8 +21,13 @@ class SoapMethodOption(str, Enum):
     SUPPORT_OWNER_ACL_TYPE = "SupportOwnerAclType=True"
 
 
-class AluObject(BaseXmlModel, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
-    """Base class for Altium Vault objects."""
+class AluObject(BaseXmlModel, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp", search_mode="unordered"):
+    """Base class for Altium Vault objects.
+
+    ``search_mode="unordered"`` is required because the Altium Vault SOAP API does
+    not guarantee element order, and pydantic-xml's default strict mode silently
+    drops fields that arrive out of declaration order.
+    """
 
     guid: Optional[str] = element(tag="GUID", default=None)
     hrid: Optional[str] = element(tag="HRID", default=None)
@@ -151,6 +156,20 @@ class AluItemRevision(AluShareableObject, tag="item", nsmap={"temp": "http://tem
         :return: A list of AluLifeCycleStateChange objects.
         """
         return await altium_workspace.get_life_cycle_state_changes_from_item_revision(self)
+
+
+class AluItemRevisionLink(AluObject, tag="item", nsmap={"temp": "http://tempuri.org/"}, ns="temp"):
+    """Class representing a link between two item revisions (parent -> child).
+
+    Managed components link to their model item revisions (symbol, footprints)
+    through these revision links. The parent is the component revision; each
+    child is a symbol/footprint revision.
+    """
+
+    child_item_revision_guid: Optional[str] = element(tag="ChildItemRevisionGUID", default=None)
+    child_vault_guid: Optional[str] = element(tag="ChildVaultGUID", default=None)
+    parent_item_revision_guid: Optional[str] = element(tag="ParentItemRevisionGUID", default=None)
+    parent_vault_guid: Optional[str] = element(tag="ParentVaultGUID", default=None)
 
 
 class AluTag(AluObject):

@@ -5,10 +5,11 @@ from py_altium365.base.connection_handler import ConnectionHandler
 from py_altium365.connection.components.components_api import ComponentsApiClient
 from py_altium365.connection.json_con_search_async import JsonConSearchAsync
 from py_altium365.connection.soapy_con_service_discovery import SoapyConServiceDiscovery
-from py_altium365.connection.vault.soapy_con_vault import SoapConVault
+from py_altium365.connection.vault.soapy_con_vault import AluDownloadUrl, SoapConVault
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
+    AluItemRevisionLink,
     AluLifeCycleDefinition,
     AluLifeCycleState,
     AluLifeCycleStateChange,
@@ -92,6 +93,44 @@ class AltiumApiWorkspace:
         """
         return f"{self._normalized_workspace_base()}{_DEFAULT_COMPONENTS_API_PATH}"
 
+    async def get_revision_download_urls(self, revision_guid: str) -> list[AluDownloadUrl]:
+        """
+        Get the download URL(s) for a single item revision.
+        :param revision_guid: The GUID of the item revision to download.
+        :return: A list of AluDownloadUrl results (usually one) for the revision.
+        """
+        return await self._vault.get_item_revision_download_urls([revision_guid])
+
+    async def download_revision_content(self, revision_guid: str) -> bytes:
+        """
+        Download the released content of an item revision.
+
+        Resolves the revision's download URL via the vault SOAP service, then
+        fetches it. The payload is a ZIP archive containing the released files
+        (for a symbol, ``Released/<name>.SchLib`` plus preview images).
+
+        :param revision_guid: The GUID of the item revision to download.
+        :return: The raw downloaded bytes (a ZIP archive).
+        :raises ConnectionError: If no download URL is returned or the fetch fails.
+        """
+        results = await self.get_revision_download_urls(revision_guid)
+        url = next((r.url for r in results if r.success and r.url), None)
+        if not url:
+            detail = next((r.message for r in results if r.message), "no download URL returned")
+            raise ConnectionError(f"download_revision_content failed for {revision_guid}: {detail}")
+
+        client = ConnectionHandler.get_instance()
+        response = await client.get(
+            url,
+            headers={"User-Agent": "Altium Designer"},
+            follow_redirects=True,
+        )
+        if response.status_code != 200:
+            raise ConnectionError(
+                f"download_revision_content fetch failed (HTTP {response.status_code}) for {revision_guid}"
+            )
+        return response.content
+
     async def get_item_from_guid(self, guid: str) -> Optional[AluItem]:
         """
         Get an item from the vault using its GUID
@@ -100,6 +139,65 @@ class AltiumApiWorkspace:
         """
         items = await self._vault.get_alu_items(options=[SoapMethodOption.INCLUDE_ALL_CHILD_OBJECTS], p_filter="GUID='" + guid + "'")
         return items[0] if len(items) > 0 else None
+
+    async def get_item_revisions(self, p_filter: Optional[str] = None) -> list[AluItemRevision]:
+        """
+        Get item revisions from the vault.
+        :param p_filter: Optional filter string (e.g. "ItemGUID = '...'" for an item's revisions).
+        :return: A list of AluItemRevision objects.
+        """
+        return await self._vault.get_alu_item_revisions(p_filter=p_filter)
+
+    async def get_item_revisions_from_item(self, item: AluItem) -> list[AluItemRevision]:
+        """
+        Get all revisions belonging to an item.
+        :param item: The AluItem to get revisions for.
+        :return: A list of AluItemRevision objects.
+        """
+        if item.guid is None:
+            return []
+        return await self._vault.get_alu_item_revisions(p_filter="ItemGUID = '" + item.guid + "'")
+
+    async def get_item_revision_from_guid(self, guid: str) -> Optional[AluItemRevision]:
+        """
+        Get a single item revision from the vault using its revision GUID.
+        :param guid: The GUID of the item revision to retrieve.
+        :return: An AluItemRevision object matching the GUID, or None if not found.
+        """
+        revisions = await self._vault.get_alu_item_revisions(p_filter="GUID = '" + guid + "'")
+        return revisions[0] if len(revisions) > 0 else None
+
+    async def get_item_revision_links(self, item_revision: AluItemRevision, child: bool = True) -> list[AluItemRevisionLink]:
+        """
+        Get the revision links for an item revision.
+        :param item_revision: The AluItemRevision to get links for.
+        :param child: If True, return links where this revision is the parent (its children).
+            If False, return links where this revision is the child (its parents).
+        :return: A list of AluItemRevisionLink objects.
+        """
+        if item_revision.guid is None:
+            return []
+        field = "ParentItemRevisionGUID" if child else "ChildItemRevisionGUID"
+        return await self._vault.get_alu_item_revision_links(p_filter=f"{field}='{item_revision.guid}'")
+
+    async def get_child_item_revisions(self, item_revision: AluItemRevision) -> list[AluItemRevision]:
+        """
+        Get the child item revisions linked to an item revision.
+
+        For a managed component revision this returns the linked symbol and
+        footprint revisions.
+        :param item_revision: The parent AluItemRevision (e.g. a component revision).
+        :return: A list of child AluItemRevision objects.
+        """
+        links = await self.get_item_revision_links(item_revision, child=True)
+        children: list[AluItemRevision] = []
+        for link in links:
+            if link.child_item_revision_guid is None:
+                continue
+            child_revision = await self.get_item_revision_from_guid(link.child_item_revision_guid)
+            if child_revision is not None:
+                children.append(child_revision)
+        return children
 
     async def get_items_in_folder(self, folder: AluFolder) -> list[AluItem]:
         """

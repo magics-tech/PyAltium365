@@ -74,8 +74,13 @@ class SoapResponse(
     SoapMethod,
     tag="Response",
     nsmap={"i": "http://www.w3.org/2001/XMLSchema-instance"},
+    search_mode="unordered",
 ):
-    """Base class for SOAP response."""
+    """Base class for SOAP response.
+
+    ``search_mode="unordered"`` so response records are matched by tag name
+    regardless of the order the Altium endpoint returns elements in.
+    """
 
     message: Optional[str] = element(
         tag="Message",

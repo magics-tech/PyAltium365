@@ -5,6 +5,7 @@ import pytest
 from py_altium365.altium_api_workspace import AltiumApiWorkspace
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluItemRevision,
+    AluItemRevisionLink,
     AluLifeCycleStateTransition,
     AluLifeCycleStateChange,
 )
@@ -76,6 +77,59 @@ def test_create_search_object_no_search_base_url(mocker):
 
 
 @pytest.mark.anyio
+async def test_get_revision_download_urls_delegates_to_vault(mocker):
+    api, _ = create_workspace_api(mocker)
+    download = mocker.Mock()
+    api._vault.get_item_revision_download_urls = mocker.AsyncMock(return_value=[download])
+
+    result = await api.get_revision_download_urls("rev-1")
+
+    assert result == [download]
+    api._vault.get_item_revision_download_urls.assert_called_once_with(["rev-1"])
+
+
+@pytest.mark.anyio
+async def test_download_revision_content_returns_bytes(mocker):
+    api, _ = create_workspace_api(mocker)
+    download = mocker.Mock(success=True, url="https://ws.example/vault/DownloadRevision?RevisionGUID=rev-1")
+    api._vault.get_item_revision_download_urls = mocker.AsyncMock(return_value=[download])
+
+    client = mocker.Mock()
+    client.get = mocker.AsyncMock(return_value=mocker.Mock(status_code=200, content=b"PK\x03\x04zip-bytes"))
+    mocker.patch("py_altium365.altium_api_workspace.ConnectionHandler.get_instance", return_value=client)
+
+    data = await api.download_revision_content("rev-1")
+
+    assert data == b"PK\x03\x04zip-bytes"
+    client.get.assert_called_once()
+    assert client.get.call_args.args[0] == download.url
+
+
+@pytest.mark.anyio
+async def test_download_revision_content_no_url_raises(mocker):
+    api, _ = create_workspace_api(mocker)
+    failed = mocker.Mock(success=False, url=None, message="Invalid Item Revision")
+    api._vault.get_item_revision_download_urls = mocker.AsyncMock(return_value=[failed])
+
+    with pytest.raises(ConnectionError, match="Invalid Item Revision"):
+        await api.download_revision_content("rev-1")
+
+
+@pytest.mark.anyio
+async def test_download_revision_content_http_error_raises(mocker):
+    api, _ = create_workspace_api(mocker)
+    download = mocker.Mock(success=True, url="https://ws.example/vault/DownloadRevision?RevisionGUID=rev-1")
+    api._vault.get_item_revision_download_urls = mocker.AsyncMock(return_value=[download])
+
+    client = mocker.Mock()
+    client.get = mocker.AsyncMock(return_value=mocker.Mock(status_code=403, content=b""))
+    mocker.patch("py_altium365.altium_api_workspace.ConnectionHandler.get_instance", return_value=client)
+
+    with pytest.raises(ConnectionError, match="HTTP 403"):
+        await api.download_revision_content("rev-1")
+
+
+@pytest.mark.anyio
 async def test_get_all_folders_delegates_to_vault(mocker):
     api, _ = create_workspace_api(mocker)
     folder = mocker.Mock()
@@ -127,6 +181,127 @@ async def test_get_item_from_guid_missing(mocker):
     api._vault.get_alu_items = mocker.AsyncMock(return_value=[])
 
     assert await api.get_item_from_guid("missing") is None
+
+
+@pytest.mark.anyio
+async def test_get_item_revisions_from_item(mocker):
+    api, _ = create_workspace_api(mocker)
+    item = mocker.Mock()
+    item.guid = "item-1"
+    revision = AluItemRevision(guid="rev-1")
+    api._vault.get_alu_item_revisions = mocker.AsyncMock(return_value=[revision])
+
+    result = await api.get_item_revisions_from_item(item)
+
+    assert result == [revision]
+    api._vault.get_alu_item_revisions.assert_called_once_with(p_filter="ItemGUID = 'item-1'")
+
+
+@pytest.mark.anyio
+async def test_get_item_revisions_from_item_no_guid(mocker):
+    api, _ = create_workspace_api(mocker)
+    item = mocker.Mock()
+    item.guid = None
+    api._vault.get_alu_item_revisions = mocker.AsyncMock()
+
+    assert await api.get_item_revisions_from_item(item) == []
+    api._vault.get_alu_item_revisions.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_get_item_revision_from_guid(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="rev-1")
+    api._vault.get_alu_item_revisions = mocker.AsyncMock(return_value=[revision])
+
+    result = await api.get_item_revision_from_guid("rev-1")
+
+    assert result is revision
+    api._vault.get_alu_item_revisions.assert_called_once_with(p_filter="GUID = 'rev-1'")
+
+
+@pytest.mark.anyio
+async def test_get_item_revision_from_guid_missing(mocker):
+    api, _ = create_workspace_api(mocker)
+    api._vault.get_alu_item_revisions = mocker.AsyncMock(return_value=[])
+
+    assert await api.get_item_revision_from_guid("missing") is None
+
+
+@pytest.mark.anyio
+async def test_get_item_revision_links_children(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="parent-rev")
+    link = AluItemRevisionLink(guid="link-1", child_item_revision_guid="child-rev")
+    api._vault.get_alu_item_revision_links = mocker.AsyncMock(return_value=[link])
+
+    result = await api.get_item_revision_links(revision, child=True)
+
+    assert result == [link]
+    api._vault.get_alu_item_revision_links.assert_called_once_with(
+        p_filter="ParentItemRevisionGUID='parent-rev'"
+    )
+
+
+@pytest.mark.anyio
+async def test_get_item_revision_links_parents(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid="child-rev")
+    api._vault.get_alu_item_revision_links = mocker.AsyncMock(return_value=[])
+
+    await api.get_item_revision_links(revision, child=False)
+
+    api._vault.get_alu_item_revision_links.assert_called_once_with(
+        p_filter="ChildItemRevisionGUID='child-rev'"
+    )
+
+
+@pytest.mark.anyio
+async def test_get_item_revision_links_no_guid(mocker):
+    api, _ = create_workspace_api(mocker)
+    revision = AluItemRevision(guid=None)
+    api._vault.get_alu_item_revision_links = mocker.AsyncMock()
+
+    assert await api.get_item_revision_links(revision) == []
+    api._vault.get_alu_item_revision_links.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_get_child_item_revisions(mocker):
+    api, _ = create_workspace_api(mocker)
+    parent = AluItemRevision(guid="parent-rev")
+    sym = AluItemRevision(guid="sym-rev", item_hrid="SYM-1", item_guid="sym-item")
+    pcc = AluItemRevision(guid="pcc-rev", item_hrid="PCC-1", item_guid="pcc-item")
+
+    links = [
+        AluItemRevisionLink(guid="l1", child_item_revision_guid="sym-rev"),
+        AluItemRevisionLink(guid="l2", child_item_revision_guid="pcc-rev"),
+    ]
+    api._vault.get_alu_item_revision_links = mocker.AsyncMock(return_value=links)
+    api._vault.get_alu_item_revisions = mocker.AsyncMock(side_effect=[[sym], [pcc]])
+
+    result = await api.get_child_item_revisions(parent)
+
+    assert result == [sym, pcc]
+    assert api._vault.get_alu_item_revisions.call_count == 2
+
+
+@pytest.mark.anyio
+async def test_get_child_item_revisions_skips_unresolvable(mocker):
+    api, _ = create_workspace_api(mocker)
+    parent = AluItemRevision(guid="parent-rev")
+    links = [
+        AluItemRevisionLink(guid="l1", child_item_revision_guid=None),
+        AluItemRevisionLink(guid="l2", child_item_revision_guid="missing-rev"),
+    ]
+    api._vault.get_alu_item_revision_links = mocker.AsyncMock(return_value=links)
+    api._vault.get_alu_item_revisions = mocker.AsyncMock(return_value=[])
+
+    result = await api.get_child_item_revisions(parent)
+
+    assert result == []
+    # Only the link with a child GUID triggers a revision lookup.
+    api._vault.get_alu_item_revisions.assert_called_once_with(p_filter="GUID = 'missing-rev'")
 
 
 @pytest.mark.anyio

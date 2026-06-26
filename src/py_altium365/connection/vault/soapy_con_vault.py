@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
-from pydantic_xml import element, wrapped
+from pydantic_xml import BaseXmlModel, element, wrapped
 
 from py_altium365.connection.soapy_con import SoapMethod, SoapResponse
 from py_altium365.connection.vault.soapy_con_vault_base import (
     AluFolder,
     AluItem,
+    AluItemRevision,
+    AluItemRevisionLink,
     AluLifeCycleDefinition,
     AluLifeCycleState,
     AluLifeCycleStateChange,
@@ -46,6 +48,60 @@ class SoapResponseVaultGetAluItems(
     """SOAP response for getting ALU items."""
 
     records: List[AluItem] = wrapped(
+        path="Records",
+        tag="item",
+        default=[],
+    )
+
+
+class SoapMethodVaultGetAluItemRevisions(
+    SoapMethod,
+    tag="GetALU_ItemRevisions",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP method for getting ALU item revisions."""
+
+    session_handle: str = element(tag="SessionHandle")
+    p_filter: Optional[str] = element(tag="Filter", default=None)
+
+
+class SoapResponseVaultGetAluItemRevisions(
+    SoapResponse,
+    tag="GetALU_ItemRevisionsResponse",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP response for getting ALU item revisions."""
+
+    records: List[AluItemRevision] = wrapped(
+        path="Records",
+        tag="item",
+        default=[],
+    )
+
+
+class SoapMethodVaultGetAluItemRevisionLinks(
+    SoapMethod,
+    tag="GetALU_ItemRevisionLinks",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP method for getting ALU item revision links."""
+
+    session_handle: str = element(tag="SessionHandle")
+    p_filter: Optional[str] = element(tag="Filter", default=None)
+
+
+class SoapResponseVaultGetAluItemRevisionLinks(
+    SoapResponse,
+    tag="GetALU_ItemRevisionLinksResponse",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP response for getting ALU item revision links."""
+
+    records: List[AluItemRevisionLink] = wrapped(
         path="Records",
         tag="item",
         default=[],
@@ -217,8 +273,101 @@ class SoapResponseVaultAddAluLifeCycleStateChanges(
     """SOAP response for adding ALU life cycle state changes."""
 
 
+class AluDownloadUrl(
+    BaseXmlModel,
+    tag="item",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+    search_mode="unordered",
+):
+    """A single download-URL result for an item revision.
+
+    The ``url`` points at the vault's ``DownloadRevision`` endpoint and returns
+    a ZIP archive containing the released payload (e.g. ``Released/*.SchLib``).
+    """
+
+    message: Optional[str] = element(tag="Message", default=None)
+    success: Optional[bool] = element(tag="Success", default=None)
+    url: Optional[str] = element(tag="URL", default=None)
+    url2: Optional[str] = element(tag="URL2", default=None)
+    size: Optional[int] = element(tag="Size", default=None)
+
+
+class AluUrlResultList(
+    BaseXmlModel,
+    tag="MethodResult",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+    search_mode="unordered",
+):
+    """Wrapper holding the per-revision download-URL results."""
+
+    success: Optional[bool] = element(tag="Success", default=None)
+    results: List[AluDownloadUrl] = wrapped(
+        path="Results",
+        entity=element(tag="item"),
+        default=[],
+    )
+
+
+class SoapMethodVaultGetItemRevisionDownloadURLs(
+    SoapMethod,
+    tag="GetALU_ItemRevisionDownloadURLs",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP method for getting download URLs for item revisions."""
+
+    item_revision_guid_list: List[str] = wrapped(
+        path="ItemRevisionGUIDList",
+        entity=element(tag="item"),
+        default=[],
+    )
+    options: List[str] = wrapped(
+        path="Options",
+        entity=element(tag="item"),
+        default=[],
+    )
+    session_handle: Optional[str] = element(tag="SessionHandle", default=None)
+
+
+class SoapResponseVaultGetItemRevisionDownloadURLs(
+    SoapResponse,
+    tag="GetALU_ItemRevisionDownloadURLsResponse",
+    nsmap={"temp": "http://tempuri.org/"},
+    ns="temp",
+):
+    """SOAP response for getting item revision download URLs."""
+
+    method_result: Optional[AluUrlResultList] = element(tag="MethodResult", default=None)
+
+
 class SoapConVault(SoapConVaultBase):
     """SOAP connection class for Altium Vault operations."""
+
+    async def get_item_revision_download_urls(
+        self,
+        item_revision_guids: List[str],
+        options: Optional[List[str]] = None,
+    ) -> List[AluDownloadUrl]:
+        """
+        Get download URLs for one or more item revisions.
+        :param item_revision_guids: Revision GUIDs to get download URLs for.
+        :param options: Optional list of string options for the call.
+        :return: A list of AluDownloadUrl results, one per requested revision.
+        """
+        response = await self._send_command(
+            header=None,
+            method=SoapMethodVaultGetItemRevisionDownloadURLs(
+                item_revision_guid_list=item_revision_guids,
+                options=options or [],
+                session_handle=self._altium_workspace.session_guid,
+            ),
+            return_method=SoapResponseVaultGetItemRevisionDownloadURLs,
+        )
+        if response.method_result is None:
+            return []
+        return response.method_result.results
 
     async def get_alu_items(self, p_filter: Optional[str] = None, options: Optional[List[SoapMethodOption]] = None) -> List[AluItem]:
         """
@@ -233,6 +382,33 @@ class SoapConVault(SoapConVaultBase):
             header=None,
             method=SoapMethodVaultGetAluItems(session_handle=self._altium_workspace.session_guid, p_filter=p_filter, options=options),
             return_method=SoapResponseVaultGetAluItems,
+        )
+        return response.records
+
+    async def get_alu_item_revisions(self, p_filter: Optional[str] = None) -> List[AluItemRevision]:
+        """
+        Get ALU item revisions from the vault.
+        :param p_filter: Optional filter string to apply to the query (e.g. "ItemGUID = '...'" or "GUID = '...'").
+        :return: A list of AluItemRevision objects.
+        """
+        response = await self._send_command(
+            header=None,
+            method=SoapMethodVaultGetAluItemRevisions(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
+            return_method=SoapResponseVaultGetAluItemRevisions,
+        )
+        return response.records
+
+    async def get_alu_item_revision_links(self, p_filter: Optional[str] = None) -> List[AluItemRevisionLink]:
+        """
+        Get ALU item revision links from the vault.
+        :param p_filter: Optional filter string to apply to the query
+            (e.g. "ParentItemRevisionGUID='...'" for a revision's children).
+        :return: A list of AluItemRevisionLink objects.
+        """
+        response = await self._send_command(
+            header=None,
+            method=SoapMethodVaultGetAluItemRevisionLinks(session_handle=self._altium_workspace.session_guid, p_filter=p_filter),
+            return_method=SoapResponseVaultGetAluItemRevisionLinks,
         )
         return response.records
 
