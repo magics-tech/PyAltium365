@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from py_altium365.base.field_encoding import COMPONENTS_API_FIELD_SUFFIX
+from py_altium365.component_parameter_utils import (
+    STANDARD_ENGINEERING_REST_FIELDS,
+    parameters_from_rest_row,
+)
 from py_altium365.connection.rest_list_client import RestListClient, RestListQuery
 
 DEFAULT_COMPONENT_FIELDS = [
@@ -18,6 +22,7 @@ DEFAULT_COMPONENT_FIELDS = [
     "Description",
     "Comment",
     "Revision State",
+    *STANDARD_ENGINEERING_REST_FIELDS,
 ]
 
 _EMPTY_ALTIUM_DATE = datetime(1899, 12, 31)
@@ -42,6 +47,7 @@ class ComponentRecord(BaseModel):
     description: str = Field(default="", alias="Description")
     comment: str = Field(default="", alias="Comment")
     revision_state: str = Field(default="", alias="Revision State")
+    raw_parameters: Dict[str, str] = Field(default_factory=dict)
 
     @classmethod
     def from_row(cls, row: Dict[str, Any]) -> "ComponentRecord":
@@ -54,7 +60,9 @@ class ComponentRecord(BaseModel):
             parsed = _parse_altium_datetime(update_date)
             if parsed is not None:
                 normalized["Update Date"] = parsed
-        return cls.model_validate(normalized)
+        record = cls.model_validate(normalized)
+        record.raw_parameters = parameters_from_rest_row(row)
+        return record
 
 
 class ComponentsListPage(BaseModel):
